@@ -1,4 +1,4 @@
-// kusuri-link v0.6.1 — Q&A links on home
+// kusuri-link v0.6.2 — render Notion Q&A page body
 import { Client } from "@notionhq/client";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -119,6 +119,70 @@ function qaCard(q,base){
     <p>${esc(answer.length>100?answer.slice(0,100)+"…":answer)}</p>
     <span class="qa-more">回答を見る →</span>
   </a>`;
+}
+
+
+async function fetchAllBlocks(notion,blockId){
+  const blocks=[];
+  let cursor=undefined;
+  do{
+    const r=await notion.blocks.children.list({block_id:blockId,start_cursor:cursor,page_size:100});
+    for(const b of r.results){
+      blocks.push(b);
+      if(b.has_children){
+        b._children=await fetchAllBlocks(notion,b.id);
+      }
+    }
+    cursor=r.has_more?r.next_cursor:undefined;
+  }while(cursor);
+  return blocks;
+}
+function richTextHtml(items=[]){
+  return items.map(x=>{
+    let t=esc(x.plain_text||"");
+    if(x.annotations?.code) t=`<code>${t}</code>`;
+    if(x.annotations?.bold) t=`<strong>${t}</strong>`;
+    if(x.annotations?.italic) t=`<em>${t}</em>`;
+    if(x.annotations?.strikethrough) t=`<s>${t}</s>`;
+    if(x.annotations?.underline) t=`<u>${t}</u>`;
+    if(x.href) t=`<a href="${esc(x.href)}" target="_blank" rel="noopener noreferrer">${t}</a>`;
+    return t;
+  }).join("");
+}
+function renderQuestionBlocks(blocks=[]){
+  const html=[];
+  let listType=null,listItems=[];
+  const flush=()=>{
+    if(!listItems.length)return;
+    const tag=listType==="numbered_list_item"?"ol":"ul";
+    html.push(`<${tag}>${listItems.join("")}</${tag}>`);
+    listItems=[];listType=null;
+  };
+  for(const b of blocks){
+    const type=b.type;
+    const data=b[type]||{};
+    if(type==="bulleted_list_item"||type==="numbered_list_item"){
+      if(listType&&listType!==type)flush();
+      listType=type;
+      const child=b._children?.length?renderQuestionBlocks(b._children):"";
+      listItems.push(`<li>${richTextHtml(data.rich_text)}${child}</li>`);
+      continue;
+    }
+    flush();
+    if(type==="paragraph") html.push(`<p>${richTextHtml(data.rich_text)}</p>`);
+    else if(type==="heading_1") html.push(`<h2>${richTextHtml(data.rich_text)}</h2>`);
+    else if(type==="heading_2") html.push(`<h2>${richTextHtml(data.rich_text)}</h2>`);
+    else if(type==="heading_3") html.push(`<h3>${richTextHtml(data.rich_text)}</h3>`);
+    else if(type==="quote") html.push(`<blockquote>${richTextHtml(data.rich_text)}</blockquote>`);
+    else if(type==="callout") html.push(`<div class="qa-callout">${richTextHtml(data.rich_text)}</div>`);
+    else if(type==="divider") html.push(`<hr>`);
+    else if(type==="toggle"){
+      const child=b._children?.length?renderQuestionBlocks(b._children):"";
+      html.push(`<details><summary>${richTextHtml(data.rich_text)}</summary>${child}</details>`);
+    }
+  }
+  flush();
+  return html.join("");
 }
 
 async function queryAll(notion,dataSourceId){
@@ -253,6 +317,8 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .qa-question-box h1{font-size:clamp(30px,4.5vw,48px);margin:0;line-height:1.35}
 .qa-answer-box{display:flex;gap:15px;align-items:flex-start;background:var(--accent-pale);border:1px solid #f5d4cd;border-radius:14px;padding:24px;margin-top:24px}
 .qa-answer-box p{font-size:18px;line-height:1.85;margin:0}.related-row{display:flex;gap:9px;flex-wrap:wrap}.related-link{border:1px solid var(--line);border-radius:999px;padding:7px 12px;text-decoration:none;font-size:13px;font-weight:700}
+
+.qa-body{margin-top:28px;font-size:16px;line-height:1.9}.qa-body h2{font-size:24px;margin:34px 0 12px}.qa-body h3{font-size:19px;margin:26px 0 10px}.qa-body p{margin:0 0 16px}.qa-body ul,.qa-body ol{padding-left:1.5em;margin:0 0 18px}.qa-body li{margin:5px 0}.qa-body blockquote{margin:20px 0;padding:14px 18px;border-left:4px solid var(--accent);background:var(--accent-pale)}.qa-callout{margin:20px 0;padding:16px 18px;border:1px solid #f5d4cd;border-radius:12px;background:var(--accent-pale)}.qa-body hr{border:0;border-top:1px solid var(--line);margin:28px 0}.qa-body details{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0}.qa-body summary{font-weight:800;cursor:pointer}
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
@@ -421,12 +487,15 @@ async function buildFromNotion(){
  for(const q of generalQuestions){
   const slug=questionSlug(q),question=textValue(prop(q,"質問")),answer=textValue(prop(q,"回答案"));
   const category=textValue(prop(q,"質問カテゴリ")),who=textValue(prop(q,"質問者区分"));
+  const blocks=await fetchAllBlocks(notion,q.id);
+  const bodyHtml=renderQuestionBlocks(blocks);
   const dir=path.join(OUT,"qa",slug);await fs.mkdir(dir,{recursive:true});
   const drugs=relationIds(prop(q,"関連薬剤")).map(id=>drugMap.get(id)).filter(Boolean).map(d=>`<a class="related-link" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`).join("");
   const topics=relationIds(prop(q,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="related-link" href="/topics/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"トピック名")))}</a>`).join("");
   await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span><span>${esc(who)}</span></div>
   <div class="qa-question-box"><span class="qa-letter">Q</span><h1>${esc(question)}</h1></div>
   <div class="qa-answer-box"><span class="qa-answer-letter">A</span><p>${esc(answer)}</p></div>
+  ${bodyHtml?`<section class="qa-body">${bodyHtml}</section>`:""}
   ${(drugs||topics)?`<section class="section"><h2>関連する情報</h2><div class="related-row">${drugs}${topics}</div></section>`:""}
   <p class="ref section">一般的な情報を示すもの。個別の判断は処方医・薬剤師などへ確認する。</p></article>`));
  }
@@ -434,12 +503,15 @@ async function buildFromNotion(){
  for(const q of professionalQuestions){
   const slug=questionSlug(q),question=textValue(prop(q,"質問")),answer=textValue(prop(q,"回答案"));
   const category=textValue(prop(q,"質問カテゴリ")),who=textValue(prop(q,"質問者区分"));
+  const blocks=await fetchAllBlocks(notion,q.id);
+  const bodyHtml=renderQuestionBlocks(blocks);
   const dir=path.join(OUT,"professionals","qa",slug);await fs.mkdir(dir,{recursive:true});
   const drugs=relationIds(prop(q,"関連薬剤")).map(id=>drugMap.get(id)).filter(Boolean).map(d=>`<a class="related-link" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`).join("");
   const topics=relationIds(prop(q,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="related-link" href="/topics/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"トピック名")))}</a>`).join("");
   await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span><span>${esc(who)}</span><span>医療・介護職向け</span></div>
   <div class="qa-question-box"><span class="qa-letter">Q</span><h1>${esc(question)}</h1></div>
   <div class="qa-answer-box"><span class="qa-answer-letter">A</span><p>${esc(answer)}</p></div>
+  ${bodyHtml?`<section class="qa-body">${bodyHtml}</section>`:""}
   ${(drugs||topics)?`<section class="section"><h2>関連する薬剤・トピック</h2><div class="related-row">${drugs}${topics}</div></section>`:""}</article>`));
  }
 
