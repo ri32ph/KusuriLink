@@ -318,20 +318,37 @@ function patientSectionsFromBlocks(blocks) {
   return sections.filter(s => !excluded.has(s.title));
 }
 
-async function queryAll(notion, dataSourceId, filter) {
+async function queryAll(notion, dataSourceId, filter = undefined) {
   const out = [];
   let cursor;
   do {
-    const res = await notion.dataSources.query({
+    const request = {
       data_source_id: dataSourceId,
-      filter,
       start_cursor: cursor,
       page_size: 100,
-    });
+    };
+    if (filter) request.filter = filter;
+
+    const res = await notion.dataSources.query(request);
     out.push(...res.results.filter(x=>x.object === "page"));
     cursor = res.has_more ? res.next_cursor : undefined;
   } while (cursor);
   return out;
+}
+
+function isPublishReady(page, label) {
+  const web = checkboxValue(prop(page,"Web公開"));
+  const status = textValue(prop(page,"レビュー状態"));
+  const review = textValue(prop(page,"最終レビュー"));
+  const slug = textValue(prop(page,"slug"));
+
+  const ok = web && status === "完了" && !!review && !!slug;
+
+  console.log(
+    `[PUBLICATION ROW] ${label}: Web公開=${web ? "ON" : "OFF"} / レビュー状態=${status || "未設定"} / 最終レビュー=${review || "未設定"} / slug=${slug || "未設定"} / ${ok ? "PASS" : "SKIP"}`
+  );
+
+  return ok;
 }
 
 async function hasRequiredBrandEvidence(notion, drug) {
@@ -374,50 +391,37 @@ async function buildFromNotion() {
   await fs.mkdir(path.join(OUT,"evidence"), { recursive: true });
   await fs.mkdir(path.join(OUT,"professionals"), { recursive: true });
 
-  const publishFilter = {
-    and: [
-      { property: "Web公開", checkbox: { equals: true } },
-      { property: "レビュー状態", status: { equals: "完了" } },
-      { property: "最終レビュー", date: { is_not_empty: true } },
-    ]
-  };
-
-  const [drugRows, topicRows, troubleRows] = await Promise.all([
-    queryAll(notion, IDS.drugs, publishFilter),
-    queryAll(notion, IDS.topics, publishFilter),
-    queryAll(notion, IDS.troubles, publishFilter),
+  // v0.4.1: Notion API側では公開条件を絞り込まず、全件取得後にコード側で判定する。
+  // DBごとのstatus/filter挙動差に影響されず、Build Logsで各行の判定理由を確認できる。
+  const [allDrugs, allTopics, allTroubles] = await Promise.all([
+    queryAll(notion, IDS.drugs),
+    queryAll(notion, IDS.topics),
+    queryAll(notion, IDS.troubles),
   ]);
 
-  console.log(`[PUBLICATION CHECK] 基本公開条件 薬剤=${drugRows.length} / トピック=${topicRows.length} / 困りごと=${troubleRows.length}`);
+  console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length}`);
+
+  const drugRows = allDrugs.filter(d =>
+    isPublishReady(d, `薬剤:${textValue(prop(d,"薬剤名")) || d.id}`)
+  );
+  const topicRows = allTopics.filter(t =>
+    isPublishReady(t, `トピック:${textValue(prop(t,"トピック名")) || t.id}`)
+  );
+  const troubleRows = allTroubles.filter(t =>
+    isPublishReady(t, `困りごと:${textValue(prop(t,"困りごと")) || t.id}`)
+  );
+
+  console.log(`[PUBLICATION CHECK] 基本公開条件PASS 薬剤=${drugRows.length} / トピック=${topicRows.length} / 困りごと=${troubleRows.length}`);
 
   const approvedDrugs = [];
   for (const d of drugRows) {
-    const name = textValue(prop(d,"薬剤名"));
-    const slug = textValue(prop(d,"slug"));
-    if (!slug) {
-      console.warn(`[PUBLICATION CHECK] ${name}: slug未設定`);
-      continue;
+    if (await hasRequiredBrandEvidence(notion,d)) {
+      approvedDrugs.push(d);
     }
-    if (await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
   }
 
-  const approvedTopics = topicRows.filter(t => {
-    const slug = textValue(prop(t,"slug"));
-    if (!slug) {
-      console.warn(`[PUBLICATION CHECK] トピック ${textValue(prop(t,"トピック名"))}: slug未設定`);
-      return false;
-    }
-    return true;
-  });
-
-  const approvedTroubles = troubleRows.filter(t => {
-    const slug = textValue(prop(t,"slug"));
-    if (!slug) {
-      console.warn(`[PUBLICATION CHECK] 困りごと ${textValue(prop(t,"困りごと"))}: slug未設定`);
-      return false;
-    }
-    return true;
-  });
+  const approvedTopics = topicRows;
+  const approvedTroubles = troubleRows;
 
   const drugMap = new Map(approvedDrugs.map(x => [x.id, x]));
   const topicMap = new Map(approvedTopics.map(x => [x.id, x]));
