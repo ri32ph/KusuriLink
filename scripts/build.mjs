@@ -1,4 +1,4 @@
-// kusuri-link v0.5.3 — flat SVG icons
+// kusuri-link v0.5.4 — Notion page icons first, flat SVG fallback
 import { Client } from "@notionhq/client";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -51,6 +51,27 @@ function iconForTrouble(category,title=""){
   if(title.includes("太もも")||title.includes("足の付け根")) return "leg";
   const map={"飲み忘れ":"clock","歯科":"tooth","治療期間":"calendar","食事":"food","副作用":"warning","飲み方":"pill"};
   return map[category]||"bubble";
+}
+
+
+function notionPageIcon(page, fallbackName="bubble", cls="mini-icon"){
+  const icon = page?.icon;
+  if(!icon) return iconSvg(fallbackName, cls);
+
+  if(icon.type === "emoji" && icon.emoji){
+    return `<span class="notion-emoji" aria-hidden="true">${esc(icon.emoji)}</span>`;
+  }
+
+  let url = "";
+  if(icon.type === "external") url = icon.external?.url || "";
+  if(icon.type === "file") url = icon.file?.url || "";
+  if(icon.type === "custom_emoji") url = icon.custom_emoji?.url || "";
+
+  if(url){
+    return `<img class="notion-image-icon" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+  }
+
+  return iconSvg(fallbackName, cls);
 }
 
 function prop(page,name){return page.properties?.[name];}
@@ -246,15 +267,15 @@ async function buildFromNotion(){
  const drugCards=approvedDrugs.map(d=>{
   const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言"));
   const indication=multiValue(prop(d,"主な適応")).join(" / ");
-  return `<a class="card" href="/drugs/${esc(slug)}/"><span>${esc(indication||"薬の情報")}</span><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
+  return `<a class="card" href="/drugs/${esc(slug)}/"><div style="display:flex;align-items:center;gap:10px"><span class="chip-icon">${notionPageIcon(d,"pill","mini-icon")}</span><span>${esc(indication||"薬の情報")}</span></div><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
  }).join("");
 
  const troubleChips=approvedTroubles.slice(0,12).map(t=>{
   const slug=textValue(prop(t,"slug"));
   const title=textValue(prop(t,"困りごと"));
   const category=textValue(prop(t,"カテゴリ"));
-  const icon=iconForTrouble(category,title);
-  return `<a class="chip" href="/troubles/${esc(slug)}/"><span class="chip-icon">${iconSvg(icon,"mini-icon")}</span><span>${esc(title)}</span></a>`;
+  const fallback=iconForTrouble(category,title);
+  return `<a class="chip" href="/troubles/${esc(slug)}/"><span class="chip-icon">${notionPageIcon(t,fallback,"mini-icon")}</span><span>${esc(title)}</span></a>`;
  }).join("");
 
  const quickTopics = approvedTopics
@@ -265,7 +286,7 @@ async function buildFromNotion(){
     const category = textValue(prop(t,"カテゴリ"));
     const title = textValue(prop(t,"トピック名"));
     const summary = textValue(prop(t,"患者向け要約"));
-    return `<a class="card" href="/topics/${esc(slug)}/"><span>${esc(category)}</span><h3>${esc(title)}</h3><p>${esc(summary)}</p></a>`;
+    return `<a class="card" href="/topics/${esc(slug)}/"><div style="display:flex;align-items:center;gap:10px"><span class="chip-icon">${notionPageIcon(t,"book","mini-icon")}</span><span>${esc(category)}</span></div><h3>${esc(title)}</h3><p>${esc(summary)}</p></a>`;
   }).join("");
 
  await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
@@ -290,8 +311,8 @@ async function buildFromNotion(){
   const troubleCards=relationIds(prop(d,"困りごと")).map(id=>troubleMap.get(id)).filter(Boolean).map(t=>{
     const category=textValue(prop(t,"カテゴリ"));
     const title=textValue(prop(t,"困りごと"));
-    const icon=iconForTrouble(category,title);
-    return `<a class="card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><div style="display:flex;align-items:center;gap:10px"><span class="chip-icon">${iconSvg(icon,"mini-icon")}</span><span>${esc(category)}</span></div><h3>${esc(title)}</h3><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`;
+    const fallback=iconForTrouble(category,title);
+    return `<a class="card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><div style="display:flex;align-items:center;gap:10px"><span class="chip-icon">${notionPageIcon(t,fallback,"mini-icon")}</span><span>${esc(category)}</span></div><h3>${esc(title)}</h3><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`;
   }).join("");
   const dir=path.join(OUT,"drugs",slug); await fs.mkdir(dir,{recursive:true});
   await fs.writeFile(path.join(dir,"index.html"),shell(name,`
