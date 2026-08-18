@@ -320,8 +320,8 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 
 .qa-body{margin-top:28px;font-size:16px;line-height:1.9}.qa-body h2{font-size:24px;margin:34px 0 12px}.qa-body h3{font-size:19px;margin:26px 0 10px}.qa-body p{margin:0 0 16px}.qa-body ul,.qa-body ol{padding-left:1.5em;margin:0 0 18px}.qa-body li{margin:5px 0}.qa-body blockquote{margin:20px 0;padding:14px 18px;border-left:4px solid var(--accent);background:var(--accent-pale)}.qa-callout{margin:20px 0;padding:16px 18px;border:1px solid #f5d4cd;border-radius:12px;background:var(--accent-pale)}.qa-body hr{border:0;border-top:1px solid var(--line);margin:28px 0}.qa-body details{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0}.qa-body summary{font-weight:800;cursor:pointer}
 
-.home-intro{max-width:760px;padding:28px 0 12px}
-.home-intro h1{font-size:clamp(42px,6vw,68px);margin:8px 0 16px}
+.home-intro{max-width:none;width:100%;padding:28px 0 12px}
+.home-intro h1{font-size:clamp(42px,5.2vw,64px);margin:8px 0 16px;line-height:1.2;white-space:nowrap}.home-intro .lead{max-width:none;white-space:nowrap}
 .home-search{margin-top:22px;max-width:700px}
 .home-search input{width:100%;border:1px solid var(--line);border-radius:14px;padding:16px 18px;font:inherit;font-size:16px;background:#fff}
 .home-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0 10px}
@@ -339,7 +339,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .directory-card small{color:var(--muted)}.directory-card h2{font-size:18px;margin:7px 0}.directory-card p{font-size:13px;color:var(--muted);margin:0}
 
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
+@media(max-width:640px){.home-intro h1,.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
 
 function shell(title,body){
@@ -358,7 +358,7 @@ async function buildPreview(){
  await fs.mkdir(OUT,{recursive:true});
  await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
  <section class="hero">
-  <div><div class="kicker">患者さんの「知りたい」から探す</div><h1>薬のこと、<br><span class="accent">「知りたい」</span>から探せます。</h1><p class="lead">薬の名前だけでなく、飲み忘れ、副作用、生活の中で気になることから情報を探せます。</p></div>
+  <div><div class="kicker">患者さんの「知りたい」から探す</div><h1>薬のこと、 <span class="accent">「知りたい」</span>から探せます。</h1><p class="lead">薬の名前だけでなく、飲み忘れ、副作用、生活の中で気になることから情報を探せます。</p></div>
   <div class="entry-grid">
    <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">${iconSvg("pill")}</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
    <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
@@ -432,7 +432,7 @@ async function buildFromNotion(){
  await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
  <section class="home-intro">
   <div class="kicker">患者さんの「知りたい」から探す</div>
-  <h1>薬のこと、<br><span class="accent">「知りたい」から探せます。</span></h1>
+  <h1>薬のこと、 <span class="accent">「知りたい」</span>から探せます。</h1>
   <p class="lead">トップページは必要な情報への入口。薬、困りごと、Q&amp;A、基本情報の一覧から探せる。</p>
   <div class="home-search"><input id="homeSearch" type="search" placeholder="このページの薬・困りごと・Q&Aを検索"></div>
  </section>
