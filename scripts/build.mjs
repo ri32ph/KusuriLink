@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const OUT = path.resolve("public");
-
 const IDS = {
   drugs: process.env.NOTION_DRUGS_DATA_SOURCE_ID,
   topics: process.env.NOTION_TOPICS_DATA_SOURCE_ID,
@@ -18,645 +17,276 @@ const REQUIRED_ENV = {
   NOTION_TROUBLES_DATA_SOURCE_ID: IDS.troubles,
   NOTION_EVIDENCE_DATA_SOURCE_ID: IDS.evidence,
 };
-
-const MISSING_ENV = Object.entries(REQUIRED_ENV)
-  .filter(([,v]) => !v)
-  .map(([k]) => k);
-
+const MISSING_ENV = Object.entries(REQUIRED_ENV).filter(([,v])=>!v).map(([k])=>k);
 const PREVIEW_MODE = MISSING_ENV.length > 0;
 
-const esc = (s="") => String(s)
+const esc=(s="")=>String(s)
   .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
   .replaceAll('"',"&quot;").replaceAll("'","&#039;");
 
-const css = `
-:root{
-  --ink:#17324d;--muted:#66788a;--line:#dfe7ed;--bg:#f7fafb;
-  --accent:#2f7f78;--accent-soft:#e7f3f1;--warm:#fff7e8;--card:#fff;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:var(--bg);color:var(--ink);line-height:1.8}
-a{color:inherit}
-.wrap{max-width:1040px;margin:auto;padding:0 20px}
-header{background:#fff;border-bottom:1px solid var(--line)}
-.head{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-.brand{font-weight:800;letter-spacing:.01em}
-.brand small{display:block;font-size:11px;font-weight:500;color:var(--muted)}
-.trust{font-size:12px;background:var(--accent-soft);color:var(--accent);padding:6px 11px;border-radius:999px;white-space:nowrap}
-main{padding:34px 0 72px}
-.hero,.panel,.card,.entry,.searchbox{background:#fff;border:1px solid var(--line);border-radius:22px}
-.hero{padding:34px;background:linear-gradient(135deg,#fff,#eef8f6)}
-.kicker,.card span,.eyebrow{color:var(--accent);font-size:12px;font-weight:800}
-h1{font-size:clamp(34px,5.5vw,54px);margin:6px 0 12px;line-height:1.22;letter-spacing:-.015em}
-.lead{font-size:18px;color:#36516a;max-width:760px;margin:0}
-.sublead{margin-top:12px;color:var(--muted);font-size:15px}
-.entry-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}
-.entry{display:block;text-decoration:none;padding:22px;min-height:146px;transition:.15s}
-.entry:hover{transform:translateY(-2px);border-color:#a9c9c4;box-shadow:0 8px 24px rgba(32,72,90,.06)}
-.entry .icon{font-size:28px;display:block;margin-bottom:8px}
-.entry h3{font-size:20px;line-height:1.45;margin:0 0 5px}
-.entry p{font-size:14px;color:var(--muted);margin:0}
-.section{margin-top:38px}
-.section-title{font-size:27px;margin:0 0 7px}
-.section-intro{color:var(--muted);margin:0 0 14px}
-.panel{padding:24px}
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px}
-.card{display:block;text-decoration:none;padding:19px;transition:.15s}
-.card:hover{border-color:#a9c9c4}
-.card h3{margin:4px 0 3px;font-size:19px}
-.card p{color:var(--muted);font-size:14px;margin:0}
-.searchbox{padding:16px}
-.search{width:100%;padding:14px 16px;border:1px solid #cfdae2;border-radius:13px;background:#fff;font-size:16px;color:var(--ink)}
-.chips{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
-.chip{display:inline-block;text-decoration:none;background:#fff;border:1px solid var(--line);padding:8px 12px;border-radius:999px;font-size:14px}
-.chip:hover{border-color:#9dc5bf}
-.info-row{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
-.soft{background:var(--accent-soft);border-color:#cfe7e3}
-.warm{background:var(--warm);border-color:#f0dfbd}
-.quick-list{margin:8px 0 0;padding-left:20px}
-.quick-list li{margin:5px 0}
-.meta-links{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
-.meta-links a{color:var(--accent);text-decoration:none}
-.ref{font-size:13px;color:var(--muted)}
-footer{background:#fff;border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-size:13px}
-@media(max-width:760px){
-  .head{align-items:flex-start;padding:13px 0}.trust{font-size:11px}
-  .entry-grid,.grid,.info-row{grid-template-columns:1fr}
-  .hero{padding:25px}.entry{min-height:auto}
-  h1{font-size:36px}
-}
-`;
-
-function shell(title, body) {
-  return `<!doctype html><html lang="ja"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}｜くすりとくらしの情報 Link</title><style>${css}</style></head>
-<body>
-<header><div class="wrap head">
-  <div class="brand">くすりとくらしの情報 Link<small>患者さんの「知りたい」から探す薬情報</small></div>
-  <div class="trust">根拠を確認した情報のみ掲載</div>
-</div></header>
-<main class="wrap">${body}</main>
-<footer><div class="wrap">
-  <div class="meta-links">
-    <a href="/about/">このサイトの情報について</a>
-    <a href="/evidence/">根拠資料について</a>
-    <a href="/professionals/">医療・介護職の方へ</a>
-  </div>
-  <p>医療上の個別判断は、処方医・薬剤師などへ確認する。</p>
-</div></footer>
-</body></html>`;
-}
-
-async function buildPreview() {
-  await fs.rm(OUT, { recursive: true, force: true });
-  await fs.mkdir(path.join(OUT,"drugs","alendronate"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"topics","bisphosphonate-missed-dose"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"about"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"evidence"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"professionals"), { recursive: true });
-
-  await fs.writeFile(path.join(OUT,"index.html"), shell("トップ", `
-    <section class="hero">
-      <div class="kicker">くすりの情報を、今知りたいことから</div>
-      <h1>薬について、<br>知りたいことから探せます。</h1>
-      <p class="lead">「薬の名前は分かる」「飲み忘れた」「副作用が心配」など、今の状況に合わせて情報を探せる。</p>
-      <p class="sublead">まずは、いちばん近い入口を選ぶ。</p>
-    </section>
-
-    <section class="entry-grid" aria-label="情報の探し方">
-      <a class="entry" href="#drugs"><span class="icon">💊</span><h3>薬から探す</h3><p>薬の名前が分かっているとき</p></a>
-      <a class="entry" href="#troubles"><span class="icon">🙋</span><h3>困りごとから探す</h3><p>飲み忘れ・副作用・歯科受診など</p></a>
-      <a class="entry" href="#quick"><span class="icon">✓</span><h3>まず知っておきたい</h3><p>飲み方や大切な注意点を確認する</p></a>
-    </section>
-
-    <section id="drugs" class="section">
-      <h2 class="section-title">薬から探す</h2>
-      <p class="section-intro">薬の名前で探す。</p>
-      <div class="searchbox"><input class="search" type="search" placeholder="薬の名前を入力（例：アレンドロン酸）"></div>
-      <div class="grid">
-        <a class="card" href="/drugs/alendronate/">
-          <span>骨粗しょう症の薬</span>
-          <h3>アレンドロン酸</h3>
-          <p>骨を壊す働きを抑え、骨折を防ぐために使われる薬。</p>
-        </a>
-      </div>
-    </section>
-
-    <section id="troubles" class="section">
-      <h2 class="section-title">よくある困りごと</h2>
-      <p class="section-intro">医学用語ではなく、今困っていることから探す。</p>
-      <div class="chips">
-        <a class="chip" href="/topics/bisphosphonate-missed-dose/">飲み忘れた</a>
-        <a class="chip" href="/drugs/alendronate/#heartburn">胸やけがする</a>
-        <a class="chip" href="/drugs/alendronate/#dental">歯医者に行く</a>
-        <a class="chip" href="/drugs/alendronate/#duration">いつまで飲む？</a>
-        <a class="chip" href="/drugs/alendronate/#thigh">太もも・足の付け根が痛い</a>
-      </div>
-    </section>
-
-    <section id="quick" class="section info-row">
-      <div class="panel soft">
-        <div class="eyebrow">まず知っておきたい</div>
-        <h2>アレンドロン酸の飲み方</h2>
-        <ul class="quick-list">
-          <li>朝、起きたときに飲む</li>
-          <li>水 約180mLで飲む</li>
-          <li>少なくとも30分は横にならない</li>
-          <li>30分は食事・水以外の飲み物・ほかの薬を避ける</li>
-        </ul>
-      </div>
-      <div class="panel warm">
-        <div class="eyebrow">迷ったとき</div>
-        <h2>自己判断で調整しない</h2>
-        <p>飲み忘れや副作用が心配なときは、追加服用や休薬を自己判断せず、薬ごとの対応を確認する。</p>
-      </div>
-    </section>
-  `));
-
-  await fs.writeFile(path.join(OUT,"drugs","alendronate","index.html"), shell("アレンドロン酸", `
-    <section class="hero">
-      <div class="kicker">骨粗しょう症の薬</div>
-      <h1>アレンドロン酸</h1>
-      <p class="lead">骨を壊す働きを抑えて、骨を折れにくくするために使う薬だ。</p>
-    </section>
-
-    <section class="section info-row">
-      <div class="panel soft">
-        <div class="eyebrow">まず知っておきたい</div>
-        <h2>飲み方の基本</h2>
-        <ul class="quick-list">
-          <li>朝起きたときに飲む</li>
-          <li>水 約180mLで飲む</li>
-          <li>30分は横にならない</li>
-          <li>30分は飲食・ほかの薬を避ける</li>
-        </ul>
-      </div>
-      <div class="panel">
-        <div class="eyebrow">この薬は何のため？</div>
-        <h2>骨折を防ぐため</h2>
-        <p>骨が壊れすぎるのを抑え、骨折しにくい状態を目指す。</p>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2 class="section-title">困りごとから探す</h2>
-      <div class="grid">
-        <a class="card" href="/topics/bisphosphonate-missed-dose/"><span>飲み忘れ</span><h3>薬を飲み忘れた</h3><p>週1回35mgを飲み忘れた場合の対応。</p></a>
-        <div class="card" id="heartburn"><span>副作用</span><h3>胸やけ・飲み込みにくさ</h3><p>飲み込みづらさ、痛み、新しい・悪化する胸やけは相談の目安になる。</p></div>
-        <div class="card" id="dental"><span>歯科</span><h3>歯医者に行くことになった</h3><p>歯科受診は避けなくてよい。薬を使っていることを伝え、自己判断で休薬しない。</p></div>
-        <div class="card" id="thigh"><span>副作用</span><h3>太もも・足の付け根が痛い</h3><p>いつもと違う痛みが続く場合は相談する。</p></div>
-        <div class="card" id="duration"><span>治療期間</span><h3>いつまで飲むの？</h3><p>「○年で必ず終了」ではなく、骨折リスクを見直して継続や休薬を判断する。</p></div>
-      </div>
-    </section>
-  `));
-
-  await fs.writeFile(path.join(OUT,"topics","bisphosphonate-missed-dose","index.html"), shell("アレンドロン酸を飲み忘れたら", `
-    <section class="hero">
-      <div class="kicker">週1回35mgを使っている方へ</div>
-      <h1>アレンドロン酸を<br>飲み忘れたら？</h1>
-      <p class="lead">まず結論を確認して、そのあと必要な理由や注意点を読む。</p>
-    </section>
-    <section class="section panel soft">
-      <div class="eyebrow">まず結論</div>
-      <h2>飲み忘れた日は飲まず、翌朝に1錠。</h2>
-      <p><b>その後はいつもの曜日に戻す。2回分を一度に飲まない。</b></p>
-    </section>
-    <section class="section panel">
-      <h2>どうすればいい？</h2>
-      <ol class="quick-list">
-        <li>飲み忘れた日は追加で飲まない</li>
-        <li>翌朝、起きたときに1錠飲む</li>
-        <li>水 約180mLで飲み、30分は横にならない</li>
-        <li>次回から元の曜日に戻す</li>
-      </ol>
-    </section>
-  `));
-
-  await fs.writeFile(path.join(OUT,"about","index.html"), shell("このサイトの情報について", `
-    <section class="hero"><div class="kicker">このサイトについて</div><h1>情報の確認方法</h1><p class="lead">患者さんが行動に移しやすい表現を優先しつつ、根拠資料を確認して掲載する。</p></section>
-    <section class="section panel"><h2>公開前の確認</h2><p>薬剤情報では先発医薬品の電子添文を必須根拠とし、患者向医薬品ガイド、公的安全性情報、ガイドライン、論文などを必要に応じて追加する。</p></section>
-  `));
-
-  await fs.writeFile(path.join(OUT,"evidence","index.html"), shell("根拠資料について", `
-    <section class="hero"><div class="kicker">Evidence</div><h1>根拠資料について</h1><p class="lead">各情報の根拠と最終確認日を管理し、更新時に見直せる仕組みを使う。</p></section>
-  `));
-
-  await fs.writeFile(path.join(OUT,"professionals","index.html"), shell("医療・介護職の方へ", `
-    <section class="hero"><div class="kicker">For Professionals</div><h1>医療・介護職の方へ</h1><p class="lead">患者向け情報と同じ根拠から、専門職向け要点へ展開する予定だ。</p></section>
-  `));
-
-  console.log("Built patient-facing preview UI v0.3.1.");
-}
-
-function prop(page, name) { return page.properties?.[name]; }
-function textValue(p) {
-  if (!p) return "";
-  if (p.type === "title") return (p.title || []).map(x=>x.plain_text).join("");
-  if (p.type === "rich_text") return (p.rich_text || []).map(x=>x.plain_text).join("");
-  if (p.type === "select") return p.select?.name || "";
-  if (p.type === "status") return p.status?.name || "";
-  if (p.type === "date") return p.date?.start || "";
+function prop(page,name){return page.properties?.[name];}
+function textValue(p){
+  if(!p) return "";
+  if(p.type==="title") return (p.title||[]).map(x=>x.plain_text).join("");
+  if(p.type==="rich_text") return (p.rich_text||[]).map(x=>x.plain_text).join("");
+  if(p.type==="select") return p.select?.name||"";
+  if(p.type==="status") return p.status?.name||"";
+  if(p.type==="date") return p.date?.start||"";
+  if(p.type==="url") return p.url||"";
   return "";
 }
-function relationIds(p){ return (p?.relation || []).map(x=>x.id); }
+function multiValue(p){return (p?.multi_select||[]).map(x=>x.name);}
+function relationIds(p){return (p?.relation||[]).map(x=>x.id);}
+function checkboxValue(p){return !!p?.checkbox;}
 
-function multiValue(p){ return (p?.multi_select || []).map(x=>x.name); }
-function checkboxValue(p){ return !!p?.checkbox; }
-
-async function getBlocks(notion, pageId) {
-  const all = [];
-  let cursor;
-  do {
-    const res = await notion.blocks.children.list({
-      block_id: pageId,
-      page_size: 100,
-      start_cursor: cursor,
+async function queryAll(notion,dataSourceId){
+  const out=[]; let cursor;
+  do{
+    const res=await notion.dataSources.query({
+      data_source_id:dataSourceId,start_cursor:cursor,page_size:100
     });
-    all.push(...res.results);
-    cursor = res.has_more ? res.next_cursor : undefined;
-  } while (cursor);
-  return all;
-}
-
-function richTextFromBlock(block) {
-  const body = block?.[block.type];
-  return (body?.rich_text || []).map(x => x.plain_text).join("");
-}
-
-function patientSectionsFromBlocks(blocks) {
-  const excluded = new Set([
-    "医療・介護職向け",
-    "医療・介護職向け要点",
-    "医療・介護職向け要点",
-    "Clinical Point",
-    "編集メモ",
-    "根拠",
-    "Webでの見せ方",
-    "患者向けWebでの見せ方"
-  ]);
-  const sections = [];
-  let current = null;
-
-  for (const block of blocks) {
-    if (["heading_1","heading_2","heading_3"].includes(block.type)) {
-      const title = richTextFromBlock(block).trim();
-      current = { title, items: [] };
-      sections.push(current);
-      continue;
-    }
-    const text = richTextFromBlock(block).trim();
-    if (!text) continue;
-    if (!current) {
-      current = { title: "", items: [] };
-      sections.push(current);
-    }
-    current.items.push({ type:block.type, text });
-  }
-
-  return sections.filter(s => !excluded.has(s.title));
-}
-
-async function queryAll(notion, dataSourceId, filter = undefined) {
-  const out = [];
-  let cursor;
-  do {
-    const request = {
-      data_source_id: dataSourceId,
-      start_cursor: cursor,
-      page_size: 100,
-    };
-    if (filter) request.filter = filter;
-
-    const res = await notion.dataSources.query(request);
-    out.push(...res.results.filter(x=>x.object === "page"));
-    cursor = res.has_more ? res.next_cursor : undefined;
-  } while (cursor);
+    out.push(...res.results.filter(x=>x.object==="page"));
+    cursor=res.has_more?res.next_cursor:undefined;
+  }while(cursor);
   return out;
 }
 
-function isPublishReady(page, label) {
-  const web = checkboxValue(prop(page,"Web公開"));
-  const status = textValue(prop(page,"レビュー状態"));
-  const review = textValue(prop(page,"最終レビュー"));
-  const slug = textValue(prop(page,"slug"));
-
-  const ok = web && status === "完了" && !!review && !!slug;
-
-  console.log(
-    `[PUBLICATION ROW] ${label}: Web公開=${web ? "ON" : "OFF"} / レビュー状態=${status || "未設定"} / 最終レビュー=${review || "未設定"} / slug=${slug || "未設定"} / ${ok ? "PASS" : "SKIP"}`
-  );
-
+function isPublishReady(page,label){
+  const web=checkboxValue(prop(page,"Web公開"));
+  const status=textValue(prop(page,"レビュー状態"));
+  const review=textValue(prop(page,"最終レビュー"));
+  const slug=textValue(prop(page,"slug"));
+  const ok=web && status==="完了" && !!review && !!slug;
+  console.log(`[PUBLICATION ROW] ${label}: Web公開=${web?"ON":"OFF"} / レビュー状態=${status||"未設定"} / 最終レビュー=${review||"未設定"} / slug=${slug||"未設定"} / ${ok?"PASS":"SKIP"}`);
   return ok;
 }
 
-async function hasRequiredBrandEvidence(notion, drug) {
-  const ids = relationIds(prop(drug,"根拠資料"));
-  if (!ids.length) {
+async function hasRequiredBrandEvidence(notion,drug){
+  const ids=relationIds(prop(drug,"根拠資料"));
+  if(!ids.length){
     console.warn(`[PUBLICATION CHECK] ${textValue(prop(drug,"薬剤名"))}: 根拠資料Relationが空`);
     return false;
   }
-
-  for (const id of ids) {
-    const evidence = await notion.pages.retrieve({ page_id: id });
-    const kind = textValue(prop(evidence,"資料種別"));
-    const productClass = textValue(prop(evidence,"製品区分"));
-    const evidenceName = textValue(prop(evidence,"資料名"));
-
-    console.log(
-      `[EVIDENCE] ${textValue(prop(drug,"薬剤名"))} <- ${evidenceName} / 資料種別=${kind || "未設定"} / 製品区分=${productClass || "未設定"}`
-    );
-
-    if (kind === "電子添文" && productClass === "先発品") {
+  for(const id of ids){
+    const evidence=await notion.pages.retrieve({page_id:id});
+    const kind=textValue(prop(evidence,"資料種別"));
+    const productClass=textValue(prop(evidence,"製品区分"));
+    const evidenceName=textValue(prop(evidence,"資料名"));
+    console.log(`[EVIDENCE] ${textValue(prop(drug,"薬剤名"))} <- ${evidenceName} / 資料種別=${kind||"未設定"} / 製品区分=${productClass||"未設定"}`);
+    if(kind==="電子添文" && productClass==="先発品"){
       console.log(`[PUBLICATION CHECK] ${textValue(prop(drug,"薬剤名"))}: 先発品電子添文を確認`);
       return true;
     }
   }
-
-  console.warn(
-    `[PUBLICATION CHECK] ${textValue(prop(drug,"薬剤名"))}: 「資料種別=電子添文」かつ「製品区分=先発品」の根拠がないため非公開`
-  );
+  console.warn(`[PUBLICATION CHECK] ${textValue(prop(drug,"薬剤名"))}: 先発品電子添文なし`);
   return false;
 }
 
-async function buildFromNotion() {
-  const notion = new Client({ auth: process.env.NOTION_API_KEY });
-
-  await fs.rm(OUT, { recursive: true, force: true });
-  await fs.mkdir(path.join(OUT,"drugs"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"topics"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"troubles"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"about"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"evidence"), { recursive: true });
-  await fs.mkdir(path.join(OUT,"professionals"), { recursive: true });
-
-  // v0.4.1: Notion API側では公開条件を絞り込まず、全件取得後にコード側で判定する。
-  // DBごとのstatus/filter挙動差に影響されず、Build Logsで各行の判定理由を確認できる。
-  const [allDrugs, allTopics, allTroubles] = await Promise.all([
-    queryAll(notion, IDS.drugs),
-    queryAll(notion, IDS.topics),
-    queryAll(notion, IDS.troubles),
-  ]);
-
-  console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length}`);
-
-  const drugRows = allDrugs.filter(d =>
-    isPublishReady(d, `薬剤:${textValue(prop(d,"薬剤名")) || d.id}`)
-  );
-  const topicRows = allTopics.filter(t =>
-    isPublishReady(t, `トピック:${textValue(prop(t,"トピック名")) || t.id}`)
-  );
-  const troubleRows = allTroubles.filter(t =>
-    isPublishReady(t, `困りごと:${textValue(prop(t,"困りごと")) || t.id}`)
-  );
-
-  console.log(`[PUBLICATION CHECK] 基本公開条件PASS 薬剤=${drugRows.length} / トピック=${topicRows.length} / 困りごと=${troubleRows.length}`);
-
-  const approvedDrugs = [];
-  for (const d of drugRows) {
-    if (await hasRequiredBrandEvidence(notion,d)) {
-      approvedDrugs.push(d);
+async function getBlocks(notion,pageId){
+  const all=[]; let cursor;
+  do{
+    const res=await notion.blocks.children.list({block_id:pageId,page_size:100,start_cursor:cursor});
+    all.push(...res.results);
+    cursor=res.has_more?res.next_cursor:undefined;
+  }while(cursor);
+  return all;
+}
+function richTextFromBlock(block){
+  const body=block?.[block.type];
+  return (body?.rich_text||[]).map(x=>x.plain_text).join("");
+}
+function patientSectionsFromBlocks(blocks){
+  const excluded=new Set(["医療・介護職向け","医療・介護職向け要点","Clinical Point","編集メモ","根拠","Webでの見せ方","患者向けWebでの見せ方"]);
+  const sections=[]; let current=null;
+  for(const block of blocks){
+    if(["heading_1","heading_2","heading_3"].includes(block.type)){
+      current={title:richTextFromBlock(block).trim(),items:[]}; sections.push(current); continue;
     }
+    const text=richTextFromBlock(block).trim();
+    if(!text) continue;
+    if(!current){current={title:"",items:[]};sections.push(current);}
+    current.items.push({type:block.type,text});
   }
-
-  const approvedTopics = topicRows;
-  const approvedTroubles = troubleRows;
-
-  const drugMap = new Map(approvedDrugs.map(x => [x.id, x]));
-  const topicMap = new Map(approvedTopics.map(x => [x.id, x]));
-  const troubleMap = new Map(approvedTroubles.map(x => [x.id, x]));
-
-  const drugCards = approvedDrugs.map(d => {
-    const name = textValue(prop(d,"薬剤名"));
-    const slug = textValue(prop(d,"slug"));
-    const lead = textValue(prop(d,"患者向け一言"));
-    const indication = multiValue(prop(d,"主な適応")).join(" / ");
-    return `<a class="card" href="/drugs/${esc(slug)}/"><span>${esc(indication || "薬の情報")}</span><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
-  }).join("");
-
-  const troubleChips = approvedTroubles.slice(0,12).map(t => {
-    const name = textValue(prop(t,"困りごと"));
-    const slug = textValue(prop(t,"slug"));
-    return `<a class="chip" href="/troubles/${esc(slug)}/">${esc(name)}</a>`;
-  }).join("");
-
-  const quickTopics = approvedTopics
-    .filter(t => ["服用方法","作用"].includes(textValue(prop(t,"カテゴリ"))))
-    .slice(0,6)
-    .map(t => {
-      const name = textValue(prop(t,"トピック名"));
-      const slug = textValue(prop(t,"slug"));
-      const summary = textValue(prop(t,"患者向け要約"));
-      return `<a class="card" href="/topics/${esc(slug)}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(name)}</h3><p>${esc(summary)}</p></a>`;
-    }).join("");
-
-  await fs.writeFile(path.join(OUT,"index.html"), shell("トップ", `
-    <section class="hero">
-      <div class="kicker">くすりの情報を、今知りたいことから</div>
-      <h1>薬について、<br>知りたいことから探せます。</h1>
-      <p class="lead">「薬の名前は分かる」「飲み忘れた」「副作用が心配」など、今の状況に合わせて情報を探せる。</p>
-    </section>
-
-    <section class="entry-grid">
-      <a class="entry" href="#drugs"><span class="icon">💊</span><h3>薬から探す</h3><p>薬の名前が分かっているとき</p></a>
-      <a class="entry" href="#troubles"><span class="icon">🙋</span><h3>困りごとから探す</h3><p>飲み忘れ・副作用・歯科受診など</p></a>
-      <a class="entry" href="#quick"><span class="icon">✓</span><h3>まず知っておきたい</h3><p>飲み方や大切な注意点を確認する</p></a>
-    </section>
-
-    <section id="drugs" class="section">
-      <h2 class="section-title">薬から探す</h2>
-      <div class="grid">${drugCards || "<p>現在、公開済みの薬はない。</p>"}</div>
-    </section>
-
-    <section id="troubles" class="section">
-      <h2 class="section-title">困りごとから探す</h2>
-      <p class="section-intro">医学用語ではなく、今困っていることから探す。</p>
-      <div class="chips">${troubleChips || "<span class='ref'>現在、公開済みの困りごとはない。</span>"}</div>
-    </section>
-
-    <section id="quick" class="section">
-      <h2 class="section-title">まず知っておきたい</h2>
-      <div class="grid">${quickTopics || "<p>現在、公開済みのトピックはない。</p>"}</div>
-    </section>
-  `));
-
-  // Drug pages
-  for (const d of approvedDrugs) {
-    const name = textValue(prop(d,"薬剤名"));
-    const slug = textValue(prop(d,"slug"));
-    const lead = textValue(prop(d,"患者向け一言"));
-    const reviewDate = textValue(prop(d,"最終レビュー"));
-
-    const relatedTopicIds = relationIds(prop(d,"トピック"));
-    const relatedTroubleIds = relationIds(prop(d,"困りごと"));
-
-    const topicCards = relatedTopicIds
-      .map(id => topicMap.get(id))
-      .filter(Boolean)
-      .map(t => {
-        const tname = textValue(prop(t,"トピック名"));
-        const tslug = textValue(prop(t,"slug"));
-        const cat = textValue(prop(t,"カテゴリ"));
-        const summary = textValue(prop(t,"患者向け要約"));
-        return `<a class="card" href="/topics/${esc(tslug)}/"><span>${esc(cat)}</span><h3>${esc(tname)}</h3><p>${esc(summary)}</p></a>`;
-      }).join("");
-
-    const troubleCards = relatedTroubleIds
-      .map(id => troubleMap.get(id))
-      .filter(Boolean)
-      .map(t => {
-        const tname = textValue(prop(t,"困りごと"));
-        const tslug = textValue(prop(t,"slug"));
-        const cat = textValue(prop(t,"カテゴリ"));
-        const short = textValue(prop(t,"短い回答"));
-        return `<a class="card" href="/troubles/${esc(tslug)}/"><span>${esc(cat)}</span><h3>${esc(tname)}</h3><p>${esc(short)}</p></a>`;
-      }).join("");
-
-    const dir = path.join(OUT,"drugs",slug);
-    await fs.mkdir(dir,{recursive:true});
-    await fs.writeFile(path.join(dir,"index.html"), shell(name, `
-      <section class="hero">
-        <div class="kicker">${esc(multiValue(prop(d,"薬効群")).join(" / ") || "薬の情報")}</div>
-        <h1>${esc(name)}</h1>
-        <p class="lead">${esc(lead)}</p>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">この薬について知る</h2>
-        <div class="grid">${topicCards || "<p>公開済みトピックはまだない。</p>"}</div>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">困りごとから探す</h2>
-        <div class="grid">${troubleCards || "<p>公開済みの困りごとはまだない。</p>"}</div>
-      </section>
-
-      <section class="section panel ref">最終レビュー：${esc(reviewDate)}</section>
-    `));
-  }
-
-  // Topic pages
-  for (const t of approvedTopics) {
-    const title = textValue(prop(t,"トピック名"));
-    const slug = textValue(prop(t,"slug"));
-    const category = textValue(prop(t,"カテゴリ"));
-    const summary = textValue(prop(t,"患者向け要約"));
-    const action = textValue(prop(t,"患者向け対応"));
-    const professional = textValue(prop(t,"専門職向け要約"));
-    const reviewDate = textValue(prop(t,"最終レビュー"));
-
-    const blocks = await getBlocks(notion, t.id);
-    const sections = patientSectionsFromBlocks(blocks).map(sec => {
-      const body = sec.items.map(i => `<p>${esc(i.text)}</p>`).join("");
-      return `<section class="section panel">${sec.title ? `<h2>${esc(sec.title)}</h2>` : ""}${body}</section>`;
-    }).join("");
-
-    const drugLinks = relationIds(prop(t,"関連薬剤"))
-      .map(id => drugMap.get(id))
-      .filter(Boolean)
-      .map(d => `<a class="chip" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`)
-      .join("");
-
-    const troubleLinks = relationIds(prop(t,"困りごと"))
-      .map(id => troubleMap.get(id))
-      .filter(Boolean)
-      .map(x => `<a class="chip" href="/troubles/${esc(textValue(prop(x,"slug")))}/">${esc(textValue(prop(x,"困りごと")))}</a>`)
-      .join("");
-
-    const dir = path.join(OUT,"topics",slug);
-    await fs.mkdir(dir,{recursive:true});
-    await fs.writeFile(path.join(dir,"index.html"), shell(title, `
-      <section class="hero">
-        <div class="kicker">${esc(category)}</div>
-        <h1>${esc(title)}</h1>
-        <p class="lead">${esc(summary)}</p>
-      </section>
-
-      ${action ? `<section class="section panel soft"><div class="eyebrow">どうすればいい？</div><p>${esc(action)}</p></section>` : ""}
-      ${sections}
-
-      ${drugLinks ? `<section class="section panel"><h2>関連する薬</h2><div class="chips">${drugLinks}</div></section>` : ""}
-      ${troubleLinks ? `<section class="section panel"><h2>関連する困りごと</h2><div class="chips">${troubleLinks}</div></section>` : ""}
-
-      ${professional ? `<details class="section panel"><summary><b>医療・介護職向け要点</b></summary><p>${esc(professional)}</p></details>` : ""}
-
-      <section class="section panel ref">最終レビュー：${esc(reviewDate)}</section>
-    `));
-  }
-
-  // Trouble pages
-  for (const t of approvedTroubles) {
-    const title = textValue(prop(t,"困りごと"));
-    const slug = textValue(prop(t,"slug"));
-    const category = textValue(prop(t,"カテゴリ"));
-    const question = textValue(prop(t,"患者さんの質問例"));
-    const short = textValue(prop(t,"短い回答"));
-    const urgency = textValue(prop(t,"緊急度"));
-    const reviewDate = textValue(prop(t,"最終レビュー"));
-
-    const relatedTopics = relationIds(prop(t,"関連トピック"))
-      .map(id => topicMap.get(id))
-      .filter(Boolean)
-      .map(x => {
-        const n=textValue(prop(x,"トピック名")), sl=textValue(prop(x,"slug")), sm=textValue(prop(x,"患者向け要約"));
-        return `<a class="card" href="/topics/${esc(sl)}/"><span>${esc(textValue(prop(x,"カテゴリ")))}</span><h3>${esc(n)}</h3><p>${esc(sm)}</p></a>`;
-      }).join("");
-
-    const relatedDrugs = relationIds(prop(t,"関連薬剤"))
-      .map(id => drugMap.get(id))
-      .filter(Boolean)
-      .map(x => `<a class="chip" href="/drugs/${esc(textValue(prop(x,"slug")))}/">${esc(textValue(prop(x,"薬剤名")))}</a>`)
-      .join("");
-
-    const dir = path.join(OUT,"troubles",slug);
-    await fs.mkdir(dir,{recursive:true});
-    await fs.writeFile(path.join(dir,"index.html"), shell(title, `
-      <section class="hero">
-        <div class="kicker">${esc(category)}</div>
-        <h1>${esc(title)}</h1>
-        ${question ? `<p class="lead">「${esc(question)}」</p>` : ""}
-      </section>
-
-      <section class="section panel soft">
-        <div class="eyebrow">まず確認</div>
-        <h2>${esc(short || "関連する情報を確認する")}</h2>
-        ${urgency ? `<p class="ref">相談の目安：${esc(urgency)}</p>` : ""}
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">詳しく見る</h2>
-        <div class="grid">${relatedTopics || "<p>関連トピックはまだない。</p>"}</div>
-      </section>
-
-      ${relatedDrugs ? `<section class="section panel"><h2>関連する薬</h2><div class="chips">${relatedDrugs}</div></section>` : ""}
-
-      <section class="section panel ref">最終レビュー：${esc(reviewDate)}</section>
-    `));
-  }
-
-  await fs.writeFile(path.join(OUT,"about","index.html"), shell("このサイトの情報について", `
-    <section class="hero"><div class="kicker">このサイトについて</div><h1>情報の確認方法</h1><p class="lead">患者さんが行動に移しやすい表現を優先しつつ、根拠資料を確認して掲載する。</p></section>
-    <section class="section panel"><h2>公開条件</h2><p>レビュー完了、Web公開ON、最終レビュー日ありに加え、薬剤ページでは先発医薬品の電子添文を必須根拠としている。</p></section>
-  `));
-
-  await fs.writeFile(path.join(OUT,"evidence","index.html"), shell("根拠資料について", `
-    <section class="hero"><div class="kicker">Evidence</div><h1>根拠資料について</h1><p class="lead">先発医薬品の電子添文を基本資料とし、患者向医薬品ガイド、公的安全性情報、ガイドライン、論文などを必要に応じて追加する。</p></section>
-  `));
-
-  await fs.writeFile(path.join(OUT,"professionals","index.html"), shell("医療・介護職の方へ", `
-    <section class="hero"><div class="kicker">For Professionals</div><h1>医療・介護職の方へ</h1><p class="lead">患者向け情報と同じ根拠から、専門職向け要点を展開する。</p></section>
-  `));
-
-  console.log(`Built drugs=${approvedDrugs.length}, topics=${approvedTopics.length}, troubles=${approvedTroubles.length}`);
+  return sections.filter(s=>!excluded.has(s.title));
 }
 
-async function main() {
-  if (PREVIEW_MODE) {
-    console.warn(`Preview mode: missing ${MISSING_ENV.join(", ")}`);
-    return buildPreview();
-  }
-  return buildFromNotion();
+const css=`
+:root{
+ --ink:#2b2d30;--muted:#6f7479;--line:#e7e8ea;--line2:#d9dbde;
+ --accent:#f05f48;--accent-soft:#fff0eb;--accent-pale:#fff7f3;
+ --soft:#f7f7f5;--shadow:0 10px 28px rgba(32,35,38,.07)
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;line-height:1.75}
+a{color:inherit}.wrap{max-width:1180px;margin:auto;padding:0 28px}
+header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.head{min-height:78px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.brand{display:flex;align-items:center;gap:13px;text-decoration:none}
+.logo{font-size:30px;color:var(--accent)}.brand-copy strong{display:block;font-size:21px}.brand-copy small{display:block;font-size:11px;color:var(--muted)}
+.header-link{font-size:14px;font-weight:700;text-decoration:none}
+main{padding:46px 0 84px}
+.hero{display:grid;grid-template-columns:.9fr 1.5fr;gap:48px;align-items:center;padding:34px 0 48px}
+.kicker,.eyebrow{color:var(--accent);font-size:13px;font-weight:800;letter-spacing:.06em}
+h1{margin:8px 0 18px;font-size:clamp(40px,6vw,68px);line-height:1.16;letter-spacing:-.03em}
+h1 .accent{color:var(--accent)}.lead{font-size:18px;color:#404347;max-width:650px;margin:0}
+.entry-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.entry{display:block;text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;min-height:250px;box-shadow:var(--shadow);position:relative;transition:.15s}
+.entry:hover{transform:translateY(-3px);border-color:#f4b4a8}
+.num{display:block;color:var(--accent);font-size:25px;font-weight:800}.icon-ring{width:88px;height:88px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;margin:20px auto 24px;font-size:37px}
+.entry h3{font-size:22px;text-align:center;margin:0 0 6px}.entry p{text-align:center;color:var(--muted);font-size:14px;margin:0;padding-top:12px;border-top:1px solid var(--line)}
+.entry .arrow{position:absolute;right:22px;bottom:14px;color:var(--accent);font-size:24px}
+.section{margin-top:44px}.section-divider{border-top:1px solid var(--line);padding-top:28px}
+.section-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}.section-bar{width:5px;height:30px;background:var(--accent)}
+.section-title{font-size:28px;margin:0}.section-intro{color:var(--muted);font-size:14px;margin:2px 0 0}
+.two-col{display:grid;grid-template-columns:1fr 1.15fr;gap:52px}
+.search-row{display:flex;gap:10px}.search{width:100%;padding:15px 16px;border:1px solid var(--line2);border-radius:10px;font-size:16px;outline:none}.search:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search-button{border:0;background:var(--accent);color:#fff;border-radius:10px;padding:0 22px;font-weight:800;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px}
+.card{display:block;text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:12px;padding:17px 18px;transition:.15s}
+.card:hover{border-color:#f4b4a8;box-shadow:0 7px 20px rgba(32,35,38,.05)}
+.card span{display:inline-block;color:var(--muted);font-size:11px;font-weight:700;background:var(--soft);border-radius:999px;padding:3px 9px}
+.card h3{font-size:18px;margin:7px 0 2px}.card p{font-size:13px;color:var(--muted);margin:0}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.chip{display:flex;align-items:center;gap:10px;text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:11px;padding:16px 18px;font-size:15px;font-weight:700}
+.chip:before{content:"";width:10px;height:10px;border:2px solid var(--accent);border-radius:50%}
+.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px}.panel.soft{background:var(--accent-pale);border-color:#f6d4cc}
+.quick-list{margin:10px 0 0;padding-left:22px}.notice{margin-top:22px;background:var(--accent-pale);border:1px solid #f6d9d1;border-radius:12px;padding:20px 22px}
+.ref{font-size:13px;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);font-size:13px}
+.footer-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}.footer-item{padding-left:18px;border-left:1px solid var(--line)}.footer-item strong{display:block;color:var(--ink);font-size:14px}.footer-item span{display:block;font-size:12px}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
+`;
+
+function shell(title,body){
+ return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}｜くすりとくらしの情報 Link</title><style>${css}</style></head>
+<body><header><div class="wrap head"><a class="brand" href="/"><span class="logo">🔗</span><span class="brand-copy"><strong>くすりとくらしの情報 <span style="color:var(--accent)">Link</span></strong><small>薬のこと、知りたいから探せます</small></span></a><a class="header-link" href="/about/">このサイトについて ↓</a></div></header>
+<main class="wrap">${body}</main><footer><div class="wrap footer-grid">
+<div class="footer-item"><strong>このサイトの情報について</strong><span>情報の根拠や更新について</span></div>
+<div class="footer-item"><strong>根拠資料について</strong><span>電子添文やガイドライン</span></div>
+<div class="footer-item"><strong>医療・介護職の方へ</strong><span>専門職向けの情報</span></div>
+<div class="footer-item"><strong>迷ったときは</strong><span>処方医・薬剤師などへ確認する</span></div>
+</div></footer></body></html>`;
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+async function buildPreview(){
+ await fs.rm(OUT,{recursive:true,force:true});
+ await fs.mkdir(OUT,{recursive:true});
+ await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
+ <section class="hero">
+  <div><div class="kicker">患者さんの「知りたい」から探す</div><h1>薬のこと、<br><span class="accent">「知りたい」</span>から探せます。</h1><p class="lead">薬の名前だけでなく、飲み忘れ、副作用、生活の中で気になることから情報を探せます。</p></div>
+  <div class="entry-grid">
+   <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">💊</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
+   <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">？</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
+   <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">📖</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
+  </div>
+ </section>
+ <section class="section section-divider two-col">
+  <div id="drugs"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div><div class="grid"><div class="card"><span>骨粗しょう症の薬</span><h3>アレンドロン酸</h3><p>骨を壊す働きを抑え、骨折を防ぐために使われる薬。</p></div></div></div>
+  <div id="troubles"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">こんなことで困っていませんか？</h2></div><div class="chips"><span class="chip">薬を飲み忘れた</span><span class="chip">胸やけがする</span><span class="chip">歯医者に行く</span></div></div>
+ </section>`));
+}
+
+async function buildFromNotion(){
+ const notion=new Client({auth:process.env.NOTION_API_KEY});
+ await fs.rm(OUT,{recursive:true,force:true});
+ await fs.mkdir(path.join(OUT,"drugs"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"topics"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"troubles"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"about"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"evidence"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"professionals"),{recursive:true});
+
+ const [allDrugs,allTopics,allTroubles]=await Promise.all([
+  queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles)
+ ]);
+ console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length}`);
+
+ const drugRows=allDrugs.filter(d=>isPublishReady(d,`薬剤:${textValue(prop(d,"薬剤名"))||d.id}`));
+ const topicRows=allTopics.filter(t=>isPublishReady(t,`トピック:${textValue(prop(t,"トピック名"))||t.id}`));
+ const troubleRows=allTroubles.filter(t=>isPublishReady(t,`困りごと:${textValue(prop(t,"困りごと"))||t.id}`));
+
+ const approvedDrugs=[];
+ for(const d of drugRows) if(await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
+ const approvedTopics=topicRows, approvedTroubles=troubleRows;
+
+ const drugMap=new Map(approvedDrugs.map(x=>[x.id,x]));
+ const topicMap=new Map(approvedTopics.map(x=>[x.id,x]));
+ const troubleMap=new Map(approvedTroubles.map(x=>[x.id,x]));
+
+ const drugCards=approvedDrugs.map(d=>{
+  const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言"));
+  const indication=multiValue(prop(d,"主な適応")).join(" / ");
+  return `<a class="card" href="/drugs/${esc(slug)}/"><span>${esc(indication||"薬の情報")}</span><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
+ }).join("");
+
+ const troubleChips=approvedTroubles.slice(0,12).map(t=>`<a class="chip" href="/troubles/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"困りごと")))}</a>`).join("");
+
+ const quickTopics=approvedTopics.filter(t=>["服用方法","作用"].includes(textValue(prop(t,"カテゴリ"))).slice(0,6).map(t=>{
+  return `<a class="card" href="/topics/${esc(textValue(prop(t,"slug")))}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(textValue(prop(t,"トピック名")))}</h3><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`;
+ }).join("");
+
+ await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
+ <section class="hero">
+  <div><div class="kicker">患者さんの「知りたい」から探す</div><h1>薬のこと、<br><span class="accent">「知りたい」</span>から探せます。</h1><p class="lead">薬の名前だけでなく、飲み忘れ、副作用、生活の中で気になることから情報を探せます。</p></div>
+  <div class="entry-grid">
+   <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">💊</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
+   <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">？</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
+   <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">📖</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
+  </div>
+ </section>
+ <section class="section section-divider two-col">
+  <div id="drugs"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div><div class="search-row"><input class="search" placeholder="薬の名前を入力してください"><button class="search-button">検索</button></div><div class="grid">${drugCards||"<p>現在、公開済みの薬はない。</p>"}</div></div>
+  <div id="troubles"><div class="section-head"><span class="section-bar"></span><div><h2 class="section-title">こんなことで困っていませんか？</h2><p class="section-intro">医学用語ではなく、今困っていることから探す。</p></div></div><div class="chips">${troubleChips||"<span class='ref'>現在、公開済みの困りごとはない。</span>"}</div><div class="notice">迷ったときや心配なときは、処方医や薬剤師などに相談してください。</div></div>
+ </section>
+ <section id="quick" class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">まず知っておきたい</h2></div><div class="grid">${quickTopics||"<p>現在、公開済みのトピックはない。</p>"}</div></section>
+ `));
+
+ for(const d of approvedDrugs){
+  const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言")),reviewDate=textValue(prop(d,"最終レビュー"));
+  const topicCards=relationIds(prop(d,"トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="card" href="/topics/${esc(textValue(prop(t,"slug")))}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(textValue(prop(t,"トピック名")))}</h3><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`).join("");
+  const troubleCards=relationIds(prop(d,"困りごと")).map(id=>troubleMap.get(id)).filter(Boolean).map(t=>`<a class="card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(textValue(prop(t,"困りごと")))}</h3><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("");
+  const dir=path.join(OUT,"drugs",slug); await fs.mkdir(dir,{recursive:true});
+  await fs.writeFile(path.join(dir,"index.html"),shell(name,`
+   <section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">${esc(multiValue(prop(d,"薬効群")).join(" / ")||"薬の情報")}</div><h1>${esc(name)}</h1><p class="lead">${esc(lead)}</p></div></section>
+   <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">この薬について知る</h2></div><div class="grid">${topicCards||"<p>公開済みトピックはまだない。</p>"}</div></section>
+   <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">困りごとから探す</h2></div><div class="grid">${troubleCards||"<p>公開済みの困りごとはまだない。</p>"}</div></section>
+   <section class="section ref">最終レビュー：${esc(reviewDate)}</section>`));
+ }
+
+ for(const t of approvedTopics){
+  const title=textValue(prop(t,"トピック名")),slug=textValue(prop(t,"slug")),category=textValue(prop(t,"カテゴリ"));
+  const summary=textValue(prop(t,"患者向け要約")),action=textValue(prop(t,"患者向け対応")),professional=textValue(prop(t,"専門職向け要約")),reviewDate=textValue(prop(t,"最終レビュー"));
+  const blocks=await getBlocks(notion,t.id);
+  const sections=patientSectionsFromBlocks(blocks).map(sec=>`<section class="section panel">${sec.title?`<h2>${esc(sec.title)}</h2>`:""}${sec.items.map(i=>`<p>${esc(i.text)}</p>`).join("")}</section>`).join("");
+  const dir=path.join(OUT,"topics",slug);await fs.mkdir(dir,{recursive:true});
+  await fs.writeFile(path.join(dir,"index.html"),shell(title,`
+   <section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">${esc(category)}</div><h1>${esc(title)}</h1><p class="lead">${esc(summary)}</p></div></section>
+   ${action?`<section class="section panel soft"><div class="eyebrow">どうすればいい？</div><p>${esc(action)}</p></section>`:""}
+   ${sections}
+   ${professional?`<details class="section panel"><summary><b>医療・介護職向け要点</b></summary><p>${esc(professional)}</p></details>`:""}
+   <section class="section ref">最終レビュー：${esc(reviewDate)}</section>`));
+ }
+
+ for(const t of approvedTroubles){
+  const title=textValue(prop(t,"困りごと")),slug=textValue(prop(t,"slug")),category=textValue(prop(t,"カテゴリ")),question=textValue(prop(t,"患者さんの質問例")),short=textValue(prop(t,"短い回答")),urgency=textValue(prop(t,"緊急度")),reviewDate=textValue(prop(t,"最終レビュー"));
+  const relatedTopics=relationIds(prop(t,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(x=>`<a class="card" href="/topics/${esc(textValue(prop(x,"slug")))}/"><span>${esc(textValue(prop(x,"カテゴリ")))}</span><h3>${esc(textValue(prop(x,"トピック名")))}</h3><p>${esc(textValue(prop(x,"患者向け要約")))}</p></a>`).join("");
+  const dir=path.join(OUT,"troubles",slug);await fs.mkdir(dir,{recursive:true});
+  await fs.writeFile(path.join(dir,"index.html"),shell(title,`
+   <section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">${esc(category)}</div><h1>${esc(title)}</h1>${question?`<p class="lead">「${esc(question)}」</p>`:""}</div></section>
+   <section class="section panel soft"><div class="eyebrow">まず確認</div><h2>${esc(short||"関連する情報を確認する")}</h2>${urgency?`<p class="ref">相談の目安：${esc(urgency)}</p>`:""}</section>
+   <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">詳しく見る</h2></div><div class="grid">${relatedTopics||"<p>関連トピックはまだない。</p>"}</div></section>
+   <section class="section ref">最終レビュー：${esc(reviewDate)}</section>`));
+ }
+
+ await fs.writeFile(path.join(OUT,"about","index.html"),shell("このサイトについて",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">このサイトについて</div><h1>情報の確認方法</h1><p class="lead">患者さんが行動に移しやすい表現を優先しつつ、根拠資料を確認して掲載する。</p></div></section>`));
+ await fs.writeFile(path.join(OUT,"evidence","index.html"),shell("根拠資料について",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">Evidence</div><h1>根拠資料について</h1><p class="lead">先発医薬品の電子添文を基本資料とする。</p></div></section>`));
+ await fs.writeFile(path.join(OUT,"professionals","index.html"),shell("医療・介護職の方へ",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">For Professionals</div><h1>医療・介護職の方へ</h1><p class="lead">患者向け情報と同じ根拠から、専門職向け要点を展開する。</p></div></section>`));
+ console.log(`Built drugs=${approvedDrugs.length}, topics=${approvedTopics.length}, troubles=${approvedTroubles.length}`);
+}
+
+async function main(){
+ if(PREVIEW_MODE){console.warn(`Preview mode: missing ${MISSING_ENV.join(", ")}`);return buildPreview();}
+ return buildFromNotion();
+}
+main().catch(err=>{console.error(err);process.exit(1);});
