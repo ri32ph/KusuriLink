@@ -220,11 +220,22 @@ async function buildFromNotion(){
   return `<a class="card" href="/drugs/${esc(slug)}/"><span>${esc(indication||"薬の情報")}</span><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
  }).join("");
 
- const troubleChips=approvedTroubles.slice(0,12).map(t=>`<a class="chip" href="/troubles/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"困りごと")))}</a>`).join("");
-
- const quickTopics=approvedTopics.filter(t=>["服用方法","作用"].includes(textValue(prop(t,"カテゴリ"))).slice(0,6).map(t=>{
-  return `<a class="card" href="/topics/${esc(textValue(prop(t,"slug")))}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(textValue(prop(t,"トピック名")))}</h3><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`;
+ const troubleChips = approvedTroubles.slice(0,12).map(t => {
+  const slug = textValue(prop(t,"slug"));
+  const title = textValue(prop(t,"困りごと"));
+  return `<a class="chip" href="/troubles/${esc(slug)}/">${esc(title)}</a>`;
  }).join("");
+
+ const quickTopics = approvedTopics
+  .filter(t => ["服用方法","作用"].includes(textValue(prop(t,"カテゴリ"))))
+  .slice(0,6)
+  .map(t => {
+    const slug = textValue(prop(t,"slug"));
+    const category = textValue(prop(t,"カテゴリ"));
+    const title = textValue(prop(t,"トピック名"));
+    const summary = textValue(prop(t,"患者向け要約"));
+    return `<a class="card" href="/topics/${esc(slug)}/"><span>${esc(category)}</span><h3>${esc(title)}</h3><p>${esc(summary)}</p></a>`;
+  }).join("");
 
  await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
  <section class="hero">
