@@ -1,11 +1,23 @@
-# くすりとくらしの情報 Link v0.5.1
+# くすりとくらしの情報 Link v0.5.2
 
-v0.5の構文エラー修正版。
+v0.5.1のデザインを維持し、VercelのNode.jsを22.xに固定した版。
 
-- 白背景
-- ダークグレー文字
-- コーラルアクセント
-- Notion連携・公開判定ロジックを維持
-- `node --check scripts/build.mjs` で構文確認済み
+## 重要
+`package.json`:
+```json
+"engines": {
+  "node": "22.x"
+}
+```
 
-GitHubのリポジトリ直下へ、このフォルダの中身を上書きして使用する。
+Vercel公式では22.xは現在利用可能なNode.jsメジャーバージョン。
+
+## 確認済み
+このZIP内の `scripts/build.mjs` は以下で構文チェック済み。
+
+```bash
+node --check scripts/build.mjs
+```
+
+GitHubへはZIPそのものではなく、解凍したフォルダ内の
+`package.json` と `scripts/build.mjs` を含む全内容をリポジトリ直下へ上書きする。

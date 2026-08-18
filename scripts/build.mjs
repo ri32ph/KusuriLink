@@ -1,3 +1,4 @@
+// kusuri-link v0.5.2 — Node 22.x pinned
 import { Client } from "@notionhq/client";
 import fs from "node:fs/promises";
 import path from "node:path";
