@@ -325,9 +325,9 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .home-search{margin-top:22px;max-width:700px}
 .home-search input{width:100%;border:1px solid var(--line);border-radius:14px;padding:16px 18px;font:inherit;font-size:16px;background:#fff}
 .home-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0 10px}
-.home-nav-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:17px;background:#fff}
-.home-nav-card .nav-no{font-size:11px;font-weight:900;color:var(--accent)}
-.home-nav-card h3{font-size:17px;margin:8px 0 4px}.home-nav-card p{font-size:12px;color:var(--muted);margin:0}
+.home-nav-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:18px;padding:22px 18px 20px;background:#fff;min-height:180px;position:relative}.home-nav-card:hover{border-color:#efad9f;transform:translateY(-2px)}
+.home-nav-card .nav-no{position:absolute;right:16px;top:15px;font-size:10px;font-weight:900;color:var(--accent);letter-spacing:.12em}.home-nav-icon{width:62px;height:62px;border-radius:16px;background:var(--accent-pale);display:flex;align-items:center;justify-content:center;margin-bottom:18px}.home-nav-icon svg{width:36px;height:36px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.home-nav-card h3{font-size:18px;margin:0 0 6px}.home-nav-card p{font-size:12px;color:var(--muted);margin:0;line-height:1.6}
 .preview-list{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .preview-item{display:block;text-decoration:none;border:1px solid var(--line);border-radius:12px;padding:15px;background:#fff}
 .preview-item small{color:var(--accent);font-weight:800}.preview-item strong{display:block;margin-top:4px}
@@ -437,10 +437,10 @@ async function buildFromNotion(){
   <div class="home-search"><input id="homeSearch" type="search" placeholder="このページの薬・困りごと・Q&Aを検索"></div>
  </section>
  <nav class="home-nav">
-  <a class="home-nav-card" href="/drugs/"><span class="nav-no">01</span><h3>薬から探す</h3><p>薬剤名の一覧・検索</p></a>
-  <a class="home-nav-card" href="/troubles/"><span class="nav-no">02</span><h3>困りごとから探す</h3><p>症状や生活場面から</p></a>
-  <a class="home-nav-card" href="/qa/"><span class="nav-no">03</span><h3>Q&amp;Aから探す</h3><p>患者さん・ご家族の質問</p></a>
-  <a class="home-nav-card" href="/topics/"><span class="nav-no">04</span><h3>まず知っておきたい</h3><p>飲み方・注意点など</p></a>
+  <a class="home-nav-card" href="/drugs/"><span class="nav-no">01</span><span class="home-nav-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M15 33 33 15a8 8 0 0 1 0 12L27 33a8.5 8.5 0 0 1-12-12l6-6a8 8 0 0 1 12 0"/><path d="m18 30 12-12"/></svg></span><h3>薬から探す</h3><p>薬剤名の一覧・検索</p></a>
+  <a class="home-nav-card" href="/troubles/"><span class="nav-no">02</span><span class="home-nav-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 13h24v18H22l-7 6v-6h-3z"/><path d="M24 18v6"/><path d="M24 27h.01"/></svg></span><h3>困りごとから探す</h3><p>症状や生活場面から</p></a>
+  <a class="home-nav-card" href="/qa/"><span class="nav-no">03</span><span class="home-nav-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="16"/><path d="M19 19a5.5 5.5 0 0 1 10 3c0 4-5 4-5 8"/><path d="M24 34h.01"/></svg></span><h3>Q&amp;Aから探す</h3><p>患者さん・ご家族の質問</p></a>
+  <a class="home-nav-card" href="/topics/"><span class="nav-no">04</span><span class="home-nav-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 12h12a5 5 0 0 1 5 5v20a5 5 0 0 0-5-5H9z"/><path d="M39 12H27a5 5 0 0 0-5 5v20a5 5 0 0 1 5-5h12z"/></svg></span><h3>まず知っておきたい</h3><p>飲み方・注意点など</p></a>
  </nav>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div>
   <div class="preview-list">${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div><a class="more-link" href="/drugs/">薬をすべて見る →</a></section>
