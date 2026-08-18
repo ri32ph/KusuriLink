@@ -280,13 +280,30 @@ async function queryAll(notion, dataSourceId, filter) {
 
 async function hasRequiredBrandEvidence(notion, drug) {
   const ids = relationIds(prop(drug,"根拠資料"));
-  for (const id of ids) {
-    const p = await notion.pages.retrieve({ page_id: id });
-    const kind = textValue(prop(p,"資料種別"));
-    const name = textValue(prop(p,"資料名"));
-    const note = textValue(prop(p,"根拠として使う内容"));
-    if (kind === "電子添文" && (name.includes("フォサマック") || name.includes("ボナロン") || note.includes("先発"))) return true;
+  if (!ids.length) {
+    console.warn(`[PUBLICATION CHECK] ${textValue(prop(drug,"薬剤名"))}: 根拠資料Relationが空`);
+    return false;
   }
+
+  for (const id of ids) {
+    const evidence = await notion.pages.retrieve({ page_id: id });
+    const kind = textValue(prop(evidence,"資料種別"));
+    const productClass = textValue(prop(evidence,"製品区分"));
+    const evidenceName = textValue(prop(evidence,"資料名"));
+
+    console.log(
+      `[EVIDENCE] ${textValue(prop(drug,"薬剤名"))} <- ${evidenceName} / 資料種別=${kind || "未設定"} / 製品区分=${productClass || "未設定"}`
+    );
+
+    if (kind === "電子添文" && productClass === "先発品") {
+      console.log(`[PUBLICATION CHECK] ${textValue(prop(drug,"薬剤名"))}: 先発品電子添文を確認`);
+      return true;
+    }
+  }
+
+  console.warn(
+    `[PUBLICATION CHECK] ${textValue(prop(drug,"薬剤名"))}: 「資料種別=電子添文」かつ「製品区分=先発品」の根拠がないため非公開`
+  );
   return false;
 }
 
@@ -304,8 +321,23 @@ async function buildFromNotion() {
   };
 
   const drugs = await queryAll(notion, IDS.drugs, publishFilter);
+  console.log(`[PUBLICATION CHECK] 基本公開条件を満たす薬剤: ${drugs.length}件`);
   const approved = [];
-  for (const d of drugs) if (await hasRequiredBrandEvidence(notion,d)) approved.push(d);
+  for (const d of drugs) {
+    const name = textValue(prop(d,"薬剤名"));
+    const slug = textValue(prop(d,"slug"));
+    console.log(`[PUBLICATION CHECK] 確認開始: ${name} / slug=${slug || "未設定"}`);
+
+    if (!slug) {
+      console.warn(`[PUBLICATION CHECK] ${name}: slug未設定のため非公開`);
+      continue;
+    }
+
+    if (await hasRequiredBrandEvidence(notion,d)) {
+      approved.push(d);
+      console.log(`[PUBLICATION CHECK] ${name}: 公開対象`);
+    }
+  }
 
   const cards = approved.map(d => {
     const name=textValue(prop(d,"薬剤名"));
@@ -322,6 +354,29 @@ async function buildFromNotion() {
     </section>
     <section class="section"><h2 class="section-title">薬から探す</h2><div class="grid">${cards || "<p>現在、公開済みの薬はない。</p>"}</div></section>
   `));
+
+  for (const d of approved) {
+    const name = textValue(prop(d,"薬剤名"));
+    const slug = textValue(prop(d,"slug"));
+    const lead = textValue(prop(d,"患者向け一言"));
+    const reviewDate = textValue(prop(d,"最終レビュー"));
+
+    const dir = path.join(OUT,"drugs",slug);
+    await fs.mkdir(dir,{recursive:true});
+    await fs.writeFile(path.join(dir,"index.html"), shell(name, `
+      <section class="hero">
+        <div class="kicker">薬の情報</div>
+        <h1>${esc(name)}</h1>
+        <p class="lead">${esc(lead)}</p>
+      </section>
+      <section class="section panel soft">
+        <div class="eyebrow">公開確認</div>
+        <h2>根拠資料を確認して掲載</h2>
+        <p>先発医薬品の電子添文が根拠資料として登録され、レビュー・公開条件を満たしている。</p>
+      </section>
+      <section class="section panel ref">最終レビュー：${esc(reviewDate)}</section>
+    `));
+  }
 
   console.log(`Built ${approved.length} approved drug(s) from Notion.`);
 }
