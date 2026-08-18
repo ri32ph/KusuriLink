@@ -1,81 +1,25 @@
-# くすりとくらしの情報 Link — Vercel/Notion連携 v0.1
+# くすりとくらしの情報 Link v0.3.1
 
-Notionを正本にし、Vercelのビルド時に公開条件を満たす情報だけ取得して静的HTMLを生成する。Notion API未設定時は自動的にプレビューモードでサンプル画面を生成する。
+v0.3の修正版。
 
-## 1. Notion側
-Notion Integrationを作成し、以下4DBをそのIntegrationに共有する。
+## 修正点
+- API未設定時でも患者向け完成形に近いトップを表示
+- 「薬について、知りたいことから探せます。」をトップの主見出しに変更
+- 「薬から探す / 困りごとから探す / まず知っておきたい」の3入口
+- 開発者向けの「プレビューモード」「Notion API未設定」という表示を患者画面から削除
+- フッターに「このサイトの情報について / 根拠資料について / 医療・介護職の方へ」
+- API設定後はNotion連携モードへ移行
 
-- 薬剤マスター
-- トピック
-- 困りごと
-- 根拠資料
+## GitHubへの反映
+ZIPを解凍し、このフォルダの中身をリポジトリ直下へ上書きする。
 
-薬剤ページはさらに「先発医薬品の電子添文」が根拠資料Relationに存在する場合だけ公開対象にする。
+重要ファイル:
+- package.json
+- vercel.json
+- scripts/build.mjs
 
-## 2. Vercelの環境変数
-`.env.example` と同じキーを Project Settings > Environment Variables に登録する。
+GitHub上の `scripts/build.mjs` を開き、
+`薬について、`
+で検索して次の文字列があれば修正版が反映されている。
 
-- `NOTION_API_KEY`
-- `NOTION_DRUGS_DATA_SOURCE_ID`
-- `NOTION_TOPICS_DATA_SOURCE_ID`
-- `NOTION_TROUBLES_DATA_SOURCE_ID`
-- `NOTION_EVIDENCE_DATA_SOURCE_ID`
-
-`NOTION_API_KEY` に `NEXT_PUBLIC_` などの公開用prefixは付けない。
-
-## 3. Notionの公開条件
-薬剤・トピック・困りごとで共通:
-
-- `レビュー状態` = `完了`
-- `Web公開` = ON
-- `最終レビュー` = 入力済み
-
-注意: 現在のアレンドロン酸は「進行中」「Web公開OFF」のため、このままビルドすると公開されない。これは意図した安全設計。
-
-## 4. ローカル確認
-```bash
-npm install
-cp .env.example .env.local
-# .env.local に実トークンを入れる
-set -a; source .env.local; set +a
-npm run build
-```
-
-生成物は `public/`。
-
-## 5. Vercel
-GitHubにこのフォルダをpushし、VercelでImportする。
-Vercelは `vercel.json` の設定に従い `npm run build` → `public/` を配信する。
-
-## 6. 更新
-Notionでレビュー → `レビュー状態=完了` → `Web公開=ON` → Vercelを再デプロイ。
-v0.2でNotion Webhook + Vercel Deploy Hookを追加すれば自動反映できる。
-
-## 設計上の注意
-- NotionトークンをHTML/JavaScriptへ埋め込まない。
-- 患者閲覧時にNotion APIを呼ばない。
-- 先発電子添文の根拠チェックに通らない薬剤ページはビルド対象から除外する。
-- トピック詳細本文はNotion本文から読み取るが、患者向け主要文はDBプロパティ（患者向け要約/対応）を優先する。
-
-
-## プレビューモード
-Notion API関連の環境変数が1つでも未設定なら、ビルドは失敗せず自動的にプレビューモードになる。
-
-- トップ
-- アレンドロン酸
-- 飲み忘れ
-
-のサンプル画面を生成する。
-
-API設定がすべて揃うと、コード変更なしでNotion連携モードへ切り替わる。
-
-
-## v0.3 UI方針
-患者向けトップを次の3入口に統一した。
-
-1. 薬から探す
-2. 困りごとから探す
-3. まず知っておきたい
-
-プレビュー時でも「Notion API未設定」などの開発者向け表示は患者画面に出さない。
-フッターに「このサイトの情報について」「根拠資料について」「医療・介護職の方へ」を配置する。
+`薬について、<br>知りたいことから探せます。`
