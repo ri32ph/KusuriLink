@@ -1,4 +1,4 @@
-// kusuri-link v0.7 — scalable home and directory pages
+// kusuri-link v0.6.2 — render Notion Q&A page body
 import { Client } from "@notionhq/client";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -324,28 +324,19 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .home-intro h1{font-size:clamp(42px,6vw,68px);margin:8px 0 16px}
 .home-search{margin-top:22px;max-width:700px}
 .home-search input{width:100%;border:1px solid var(--line);border-radius:14px;padding:16px 18px;font:inherit;font-size:16px;background:#fff}
-.home-search input:focus{outline:3px solid var(--accent-soft);border-color:var(--accent)}
 .home-nav{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0 10px}
-.home-nav-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:17px;background:#fff;transition:.15s}
-.home-nav-card:hover{border-color:#f2aa9c;box-shadow:0 8px 22px rgba(32,35,38,.05)}
-.home-nav-card .nav-no{font-size:11px;font-weight:900;color:var(--accent);letter-spacing:.12em}
-.home-nav-card h3{font-size:17px;margin:8px 0 4px}
-.home-nav-card p{font-size:12px;color:var(--muted);margin:0}
+.home-nav-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:17px;background:#fff}
+.home-nav-card .nav-no{font-size:11px;font-weight:900;color:var(--accent)}
+.home-nav-card h3{font-size:17px;margin:8px 0 4px}.home-nav-card p{font-size:12px;color:var(--muted);margin:0}
 .preview-list{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .preview-item{display:block;text-decoration:none;border:1px solid var(--line);border-radius:12px;padding:15px;background:#fff}
-.preview-item:hover{border-color:#f2aa9c}
-.preview-item small{color:var(--accent);font-weight:800}
-.preview-item strong{display:block;margin-top:4px;line-height:1.5}
+.preview-item small{color:var(--accent);font-weight:800}.preview-item strong{display:block;margin-top:4px}
 .more-link{display:inline-flex;margin-top:15px;text-decoration:none;color:var(--accent);font-weight:800}
-.directory-head{padding:28px 0 10px}
-.directory-head h1{font-size:clamp(36px,5vw,56px);margin:6px 0 10px}
+.directory-head{padding:28px 0 10px}.directory-head h1{font-size:clamp(36px,5vw,56px);margin:6px 0 10px}
 .filter-input{width:100%;border:1px solid var(--line);border-radius:13px;padding:14px 16px;font:inherit;margin:14px 0 22px}
 .directory-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
 .directory-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:13px;padding:17px;background:#fff}
-.directory-card:hover{border-color:#f2aa9c}
-.directory-card small{color:var(--muted)}
-.directory-card h2{font-size:18px;margin:7px 0}
-.directory-card p{font-size:13px;color:var(--muted);margin:0}
+.directory-card small{color:var(--muted)}.directory-card h2{font-size:18px;margin:7px 0}.directory-card p{font-size:13px;color:var(--muted);margin:0}
 
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
@@ -366,73 +357,116 @@ async function buildPreview(){
  await fs.rm(OUT,{recursive:true,force:true});
  await fs.mkdir(OUT,{recursive:true});
  await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
+ <section class="hero">
+  <div><div class="kicker">患者さんの「知りたい」から探す</div><h1>薬のこと、<br><span class="accent">「知りたい」</span>から探せます。</h1><p class="lead">薬の名前だけでなく、飲み忘れ、副作用、生活の中で気になることから情報を探せます。</p></div>
+  <div class="entry-grid">
+   <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">${iconSvg("pill")}</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
+   <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
+   <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">${iconSvg("book")}</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
+   <a class="entry" href="/qa/"><span class="num">04</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>Q&amp;Aから探す</h3><p>患者さん・ご家族からのよくある質問を見る</p><span class="arrow">→</span></a>
+  </div>
+ </section>
+ <section class="section section-divider two-col">
+  <div id="drugs"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div><div class="grid"><div class="card"><span>骨粗しょう症の薬</span><h3>アレンドロン酸</h3><p>骨を壊す働きを抑え、骨折を防ぐために使われる薬。</p></div></div></div>
+  <div id="troubles"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">こんなことで困っていませんか？</h2></div><div class="chips"><span class="chip"><span class="chip-icon">${iconSvg("clock","mini-icon")}</span><span>薬を飲み忘れた</span></span><span class="chip"><span class="chip-icon">${iconSvg("chest","mini-icon")}</span><span>胸やけがする</span></span><span class="chip"><span class="chip-icon">${iconSvg("tooth","mini-icon")}</span><span>歯医者に行く</span></span></div></div>
+ </section>`));
+}
+
+async function buildFromNotion(){
+ const notion=new Client({auth:process.env.NOTION_API_KEY});
+ await fs.rm(OUT,{recursive:true,force:true});
+ await fs.mkdir(path.join(OUT,"drugs"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"topics"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"troubles"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"about"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"evidence"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"professionals"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"qa"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"professionals","qa"),{recursive:true});
+
+ const [allDrugs,allTopics,allTroubles,allQuestions]=await Promise.all([
+  queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles),queryAll(notion,IDS.questions)
+ ]);
+ console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length} / 質問=${allQuestions.length}`);
+
+ const drugRows=allDrugs.filter(d=>isPublishReady(d,`薬剤:${textValue(prop(d,"薬剤名"))||d.id}`));
+ const topicRows=allTopics.filter(t=>isPublishReady(t,`トピック:${textValue(prop(t,"トピック名"))||t.id}`));
+ const troubleRows=allTroubles.filter(t=>isPublishReady(t,`困りごと:${textValue(prop(t,"困りごと"))||t.id}`));
+
+ const approvedQuestions=allQuestions.filter(isQuestionPublishReady);
+ const generalQuestions=approvedQuestions.filter(q=>GENERAL_QUESTIONERS.has(textValue(prop(q,"質問者区分"))));
+ const professionalQuestions=approvedQuestions.filter(q=>PROFESSIONAL_QUESTIONERS.has(textValue(prop(q,"質問者区分"))));
+ const approvedDrugs=[];
+ for(const d of drugRows) if(await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
+ const approvedTopics=topicRows, approvedTroubles=troubleRows;
+
+ const drugMap=new Map(approvedDrugs.map(x=>[x.id,x]));
+ const topicMap=new Map(approvedTopics.map(x=>[x.id,x]));
+ const troubleMap=new Map(approvedTroubles.map(x=>[x.id,x]));
+
+ const drugCards=approvedDrugs.map(d=>{
+  const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言"));
+  const indication=multiValue(prop(d,"主な適応")).join(" / ");
+  return `<a class="card" href="/drugs/${esc(slug)}/"><div style="display:flex;align-items:center;gap:10px"><span class="chip-icon">${notionPageIcon(d,"pill","mini-icon")}</span><span>${esc(indication||"薬の情報")}</span></div><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
+ }).join("");
+
+ const troubleChips=approvedTroubles.slice(0,12).map(t=>{
+  const slug=textValue(prop(t,"slug"));
+  const title=textValue(prop(t,"困りごと"));
+  const category=textValue(prop(t,"カテゴリ"));
+  const fallback=iconForTrouble(category,title);
+  return `<a class="chip" href="/troubles/${esc(slug)}/"><span class="chip-icon">${notionPageIcon(t,fallback,"mini-icon")}</span><span>${esc(title)}</span></a>`;
+ }).join("");
+
+ const quickTopics = approvedTopics
+  .filter(t => ["服用方法","作用"].includes(textValue(prop(t,"カテゴリ"))))
+  .slice(0,6)
+  .map(t => {
+    const slug = textValue(prop(t,"slug"));
+    const category = textValue(prop(t,"カテゴリ"));
+    const title = textValue(prop(t,"トピック名"));
+    const summary = textValue(prop(t,"患者向け要約"));
+    return `<a class="card" href="/topics/${esc(slug)}/"><div style="display:flex;align-items:center;gap:10px"><span class="chip-icon">${notionPageIcon(t,"book","mini-icon")}</span><span>${esc(category)}</span></div><h3>${esc(title)}</h3><p>${esc(summary)}</p></a>`;
+  }).join("");
+
+ await fs.writeFile(path.join(OUT,"index.html"),shell("トップ",`
  <section class="home-intro">
   <div class="kicker">患者さんの「知りたい」から探す</div>
   <h1>薬のこと、<br><span class="accent">「知りたい」から探せます。</span></h1>
   <p class="lead">トップページは必要な情報への入口。薬、困りごと、Q&amp;A、基本情報の一覧から探せる。</p>
-  <div class="home-search"><input id="homeSearch" type="search" placeholder="このページの薬・困りごと・Q&Aを検索" aria-label="トップページ内検索"></div>
+  <div class="home-search"><input id="homeSearch" type="search" placeholder="このページの薬・困りごと・Q&Aを検索"></div>
  </section>
-
- <nav class="home-nav" aria-label="情報の入口">
+ <nav class="home-nav">
   <a class="home-nav-card" href="/drugs/"><span class="nav-no">01</span><h3>薬から探す</h3><p>薬剤名の一覧・検索</p></a>
   <a class="home-nav-card" href="/troubles/"><span class="nav-no">02</span><h3>困りごとから探す</h3><p>症状や生活場面から</p></a>
   <a class="home-nav-card" href="/qa/"><span class="nav-no">03</span><h3>Q&amp;Aから探す</h3><p>患者さん・ご家族の質問</p></a>
   <a class="home-nav-card" href="/topics/"><span class="nav-no">04</span><h3>まず知っておきたい</h3><p>飲み方・注意点など</p></a>
  </nav>
-
- <section class="section section-divider">
-  <div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div>
-  <div class="preview-list">
-   ${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("") || "<p>現在、公開中の薬はない。</p>"}
-  </div>
-  <a class="more-link" href="/drugs/">薬をすべて見る →</a>
- </section>
-
- <section class="section section-divider">
-  <div class="section-head"><span class="section-bar"></span><h2 class="section-title">よくある困りごと</h2></div>
-  <div class="preview-list">
-   ${approvedTroubles.slice(0,6).map(t=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(t,"困りごと")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><strong>${esc(textValue(prop(t,"困りごと")))}</strong></a>`).join("") || "<p>現在、公開中の困りごとはない。</p>"}
-  </div>
-  <a class="more-link" href="/troubles/">困りごとをすべて見る →</a>
- </section>
-
- <section class="section section-divider">
-  <div class="section-head"><span class="section-bar"></span><h2 class="section-title">最近のQ&amp;A</h2></div>
-  <div class="preview-list">
-   ${generalQuestions.slice(0,3).map(q=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(q,"質問")))}" href="/qa/${esc(questionSlug(q))}/"><small>Q&amp;A</small><strong>Q. ${esc(textValue(prop(q,"質問")))}</strong></a>`).join("") || "<p>現在、公開中のQ&Aはない。</p>"}
-  </div>
-  <a class="more-link" href="/qa/">Q&amp;Aをすべて見る →</a>
- </section>
-
- <script>
- (()=>{const i=document.getElementById("homeSearch");if(!i)return;i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll(".searchable").forEach(el=>{el.style.display=!q||(el.dataset.search||"").toLowerCase().includes(q)?"":"none";});});})();
- </script>
+ <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div>
+  <div class="preview-list">${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div><a class="more-link" href="/drugs/">薬をすべて見る →</a></section>
+ <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">よくある困りごと</h2></div>
+  <div class="preview-list">${approvedTroubles.slice(0,6).map(t=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(t,"困りごと")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><strong>${esc(textValue(prop(t,"困りごと")))}</strong></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div><a class="more-link" href="/troubles/">困りごとをすべて見る →</a></section>
+ <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">最近のQ&amp;A</h2></div>
+  <div class="preview-list">${generalQuestions.slice(0,3).map(q=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(q,"質問")))}" href="/qa/${esc(questionSlug(q))}/"><small>Q&amp;A</small><strong>Q. ${esc(textValue(prop(q,"質問")))}</strong></a>`).join("")||"<p>現在、公開中のQ&Aはない。</p>"}</div><a class="more-link" href="/qa/">Q&amp;Aをすべて見る →</a></section>
+ <script>(()=>{const i=document.getElementById("homeSearch");if(i)i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll(".searchable").forEach(el=>{el.style.display=!q||(el.dataset.search||"").toLowerCase().includes(q)?"":"none";});});})();</script>
  `));
 
- const filterScript=`<script>(()=>{const i=document.getElementById("filter");if(!i)return;i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll("[data-filter]").forEach(el=>{el.style.display=!q||(el.dataset.filter||"").toLowerCase().includes(q)?"":"none";});});})();</script>`;
+ const filterScript=`<script>(()=>{const i=document.getElementById("filter");if(i)i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll("[data-filter]").forEach(el=>{el.style.display=!q||(el.dataset.filter||"").toLowerCase().includes(q)?"":"none";});});})();</script>`;
 
  await fs.writeFile(path.join(OUT,"drugs","index.html"),shell("薬から探す",`
   <section class="directory-head"><div class="kicker">DRUG DIRECTORY</div><h1>薬から探す</h1><p class="lead">薬剤名から情報を探せる。</p></section>
   <input id="filter" class="filter-input" type="search" placeholder="薬剤名を入力">
-  <div class="directory-grid">
-   ${approvedDrugs.map(d=>`<a class="directory-card" data-filter="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>${esc(textValue(prop(d,"一般名"))||"薬の情報")}</small><h2>${esc(textValue(prop(d,"薬剤名")))}</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("") || "<p>現在、公開中の薬はない。</p>"}
-  </div>${filterScript}
+  <div class="directory-grid">${approvedDrugs.map(d=>`<a class="directory-card" data-filter="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><h2>${esc(textValue(prop(d,"薬剤名")))}</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div>${filterScript}
  `));
-
  await fs.writeFile(path.join(OUT,"troubles","index.html"),shell("困りごとから探す",`
   <section class="directory-head"><div class="kicker">TROUBLE DIRECTORY</div><h1>困りごとから探す</h1><p class="lead">症状や生活の場面から関連情報を探せる。</p></section>
   <input id="filter" class="filter-input" type="search" placeholder="困りごとを入力">
-  <div class="directory-grid">
-   ${approvedTroubles.map(t=>`<a class="directory-card" data-filter="${esc(textValue(prop(t,"困りごと"))+" "+textValue(prop(t,"カテゴリ")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><h2>${esc(textValue(prop(t,"困りごと")))}</h2><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("") || "<p>現在、公開中の困りごとはない。</p>"}
-  </div>${filterScript}
+  <div class="directory-grid">${approvedTroubles.map(t=>`<a class="directory-card" data-filter="${esc(textValue(prop(t,"困りごと"))+" "+textValue(prop(t,"カテゴリ")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><h2>${esc(textValue(prop(t,"困りごと")))}</h2><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div>${filterScript}
  `));
-
  await fs.writeFile(path.join(OUT,"topics","index.html"),shell("まず知っておきたい",`
-  <section class="directory-head"><div class="kicker">TOPICS</div><h1>まず知っておきたい</h1><p class="lead">飲み方、作用、注意点などの基本情報をまとめている。</p></section>
+  <section class="directory-head"><div class="kicker">TOPICS</div><h1>まず知っておきたい</h1><p class="lead">飲み方、作用、注意点などの基本情報。</p></section>
   <input id="filter" class="filter-input" type="search" placeholder="トピックを入力">
-  <div class="directory-grid">
-   ${approvedTopics.map(t=>`<a class="directory-card" data-filter="${esc(textValue(prop(t,"トピック名"))+" "+textValue(prop(t,"カテゴリ")))}" href="/topics/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"トピック")}</small><h2>${esc(textValue(prop(t,"トピック名")))}</h2><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`).join("") || "<p>現在、公開中のトピックはない。</p>"}
-  </div>${filterScript}
+  <div class="directory-grid">${approvedTopics.map(t=>`<a class="directory-card" data-filter="${esc(textValue(prop(t,"トピック名"))+" "+textValue(prop(t,"カテゴリ")))}" href="/topics/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"トピック")}</small><h2>${esc(textValue(prop(t,"トピック名")))}</h2><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`).join("")||"<p>現在、公開中のトピックはない。</p>"}</div>${filterScript}
  `));
 
  for(const d of approvedDrugs){
