@@ -1,23 +1,10 @@
-# くすりとくらしの情報 Link v0.5.2
+# くすりとくらしの情報 Link v0.5.3
 
-v0.5.1のデザインを維持し、VercelのNode.jsを22.xに固定した版。
+白背景・ダークグレー文字・コーラルアクセントを維持し、
+絵文字を統一したフラットSVGアイコンへ置き換えた。
 
-## 重要
-`package.json`:
-```json
-"engines": {
-  "node": "22.x"
-}
-```
-
-Vercel公式では22.xは現在利用可能なNode.jsメジャーバージョン。
-
-## 確認済み
-このZIP内の `scripts/build.mjs` は以下で構文チェック済み。
-
-```bash
-node --check scripts/build.mjs
-```
-
-GitHubへはZIPそのものではなく、解凍したフォルダ内の
-`package.json` と `scripts/build.mjs` を含む全内容をリポジトリ直下へ上書きする。
+- トップ: 錠剤 / 吹き出し / 本
+- 困りごと: 時計 / 歯 / 胸 / のど / 脚 / カレンダー など
+- 外部アイコンライブラリ不使用
+- Node.js 22.x固定
+- Notion連携・公開判定ロジック維持

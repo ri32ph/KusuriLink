@@ -1,4 +1,4 @@
-// kusuri-link v0.5.2 — Node 22.x pinned
+// kusuri-link v0.5.3 — flat SVG icons
 import { Client } from "@notionhq/client";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -24,6 +24,34 @@ const PREVIEW_MODE = MISSING_ENV.length > 0;
 const esc=(s="")=>String(s)
   .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
   .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+
+
+function iconSvg(name, cls="flat-icon"){
+  const common = `class="${cls}" viewBox="0 0 64 64" fill="none" aria-hidden="true"`;
+  const stroke = `stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"`;
+  const icons = {
+    pill: `<svg ${common}><rect x="11" y="23" width="42" height="18" rx="9" ${stroke}/><path d="M32 23v18" ${stroke}/><path d="M16 28h11" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    bubble: `<svg ${common}><path d="M13 15h38a7 7 0 0 1 7 7v18a7 7 0 0 1-7 7H31l-12 8v-8h-6a7 7 0 0 1-7-7V22a7 7 0 0 1 7-7Z" ${stroke}/><path d="M27 28c1.2-3.4 3.8-5.2 7.2-5.2 4.3 0 7.3 2.6 7.3 6.2 0 3.1-1.8 4.6-4.1 6.1-1.9 1.2-2.8 2.1-2.8 4.3" ${stroke}/><circle cx="34.5" cy="44.5" r="1.5" fill="var(--accent)"/></svg>`,
+    book: `<svg ${common}><path d="M9 14h18c4 0 7 3 7 7v29c0-4-3-7-7-7H9V14Z" ${stroke}/><path d="M55 14H37c-4 0-7 3-7 7v29c0-4 3-7 7-7h18V14Z" ${stroke}/><path d="M16 23h11M16 29h11M38 23h10M38 29h10" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+    clock: `<svg ${common}><circle cx="32" cy="32" r="22" ${stroke}/><path d="M32 18v15l10 6" ${stroke}/><circle cx="32" cy="32" r="2" fill="var(--accent)"/></svg>`,
+    tooth: `<svg ${common}><path d="M22 9c-8 0-13 6-13 14 0 6 3 10 5 15 2 5 3 17 8 17 4 0 4-11 10-11s6 11 10 11c5 0 6-12 8-17 2-5 5-9 5-15 0-8-5-14-13-14-5 0-7 3-10 3s-5-3-10-3Z" ${stroke}/><path d="M22 15c3 2 6 3 10 3" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+    chest: `<svg ${common}><path d="M24 10c-6 3-10 10-10 18 0 9 5 17 8 25h20c3-8 8-16 8-25 0-8-4-15-10-18" ${stroke}/><path d="M32 11v38" ${stroke}/><path d="M26 29c2-3 4-4 6-4 3 0 5 2 6 5" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    throat: `<svg ${common}><path d="M23 9c-2 8-1 14 3 18l3 3v22M41 9c2 8 1 14-3 18l-3 3v22" ${stroke}/><path d="M27 30h10" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    leg: `<svg ${common}><path d="M25 8c1 10 2 18 2 26l-5 20M39 8c-1 10-2 18-2 26l5 20" ${stroke}/><path d="M27 33c3 2 7 2 10 0" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    calendar: `<svg ${common}><rect x="10" y="14" width="44" height="40" rx="6" ${stroke}/><path d="M10 25h44M21 8v12M43 8v12" ${stroke}/><path d="M21 34h8M35 34h8M21 42h8" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    food: `<svg ${common}><circle cx="32" cy="33" r="18" ${stroke}/><path d="M13 13v16M8 13v10c0 4 2 6 5 6s5-2 5-6V13M51 13v16M51 13c5 5 6 11 0 16" ${stroke}/><path d="M24 33h16" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`,
+    warning: `<svg ${common}><path d="M32 9 57 53H7L32 9Z" ${stroke}/><path d="M32 23v15" ${stroke}/><circle cx="32" cy="44" r="1.7" fill="var(--accent)"/></svg>`,
+    link: `<svg ${common}><path d="M24 39l-5 5a8 8 0 0 1-11-11l9-9a8 8 0 0 1 11 0" ${stroke}/><path d="M40 25l5-5a8 8 0 0 1 11 11l-9 9a8 8 0 0 1-11 0" ${stroke}/><path d="M23 41l18-18" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/></svg>`
+  };
+  return icons[name] || icons.bubble;
+}
+function iconForTrouble(category,title=""){
+  if(title.includes("胸やけ")) return "chest";
+  if(title.includes("飲み込み")) return "throat";
+  if(title.includes("太もも")||title.includes("足の付け根")) return "leg";
+  const map={"飲み忘れ":"clock","歯科":"tooth","治療期間":"calendar","食事":"food","副作用":"warning","飲み方":"pill"};
+  return map[category]||"bubble";
+}
 
 function prop(page,name){return page.properties?.[name];}
 function textValue(p){
@@ -123,7 +151,7 @@ a{color:inherit}.wrap{max-width:1180px;margin:auto;padding:0 28px}
 header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
 .head{min-height:78px;display:flex;align-items:center;justify-content:space-between;gap:20px}
 .brand{display:flex;align-items:center;gap:13px;text-decoration:none}
-.logo{font-size:30px;color:var(--accent)}.brand-copy strong{display:block;font-size:21px}.brand-copy small{display:block;font-size:11px;color:var(--muted)}
+.logo-wrap{width:38px;height:38px;display:grid;place-items:center;color:var(--accent)}.brand-icon{width:34px;height:34px;display:block}.brand-copy strong{display:block;font-size:21px}.brand-copy small{display:block;font-size:11px;color:var(--muted)}
 .header-link{font-size:14px;font-weight:700;text-decoration:none}
 main{padding:46px 0 84px}
 .hero{display:grid;grid-template-columns:.9fr 1.5fr;gap:48px;align-items:center;padding:34px 0 48px}
@@ -133,7 +161,7 @@ h1 .accent{color:var(--accent)}.lead{font-size:18px;color:#404347;max-width:650p
 .entry-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .entry{display:block;text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;min-height:250px;box-shadow:var(--shadow);position:relative;transition:.15s}
 .entry:hover{transform:translateY(-3px);border-color:#f4b4a8}
-.num{display:block;color:var(--accent);font-size:25px;font-weight:800}.icon-ring{width:88px;height:88px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;margin:20px auto 24px;font-size:37px}
+.num{display:block;color:var(--accent);font-size:25px;font-weight:800}.icon-ring{width:88px;height:88px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;margin:20px auto 24px;color:var(--ink)}.flat-icon{width:52px;height:52px;display:block}.mini-icon{width:24px;height:24px;display:block;color:var(--ink)}
 .entry h3{font-size:22px;text-align:center;margin:0 0 6px}.entry p{text-align:center;color:var(--muted);font-size:14px;margin:0;padding-top:12px;border-top:1px solid var(--line)}
 .entry .arrow{position:absolute;right:22px;bottom:14px;color:var(--accent);font-size:24px}
 .section{margin-top:44px}.section-divider{border-top:1px solid var(--line);padding-top:28px}
@@ -161,7 +189,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 
 function shell(title,body){
  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}｜くすりとくらしの情報 Link</title><style>${css}</style></head>
-<body><header><div class="wrap head"><a class="brand" href="/"><span class="logo">🔗</span><span class="brand-copy"><strong>くすりとくらしの情報 <span style="color:var(--accent)">Link</span></strong><small>薬のこと、知りたいから探せます</small></span></a><a class="header-link" href="/about/">このサイトについて ↓</a></div></header>
+<body><header><div class="wrap head"><a class="brand" href="/"><span class="logo-wrap">${iconSvg("link","brand-icon")}</span><span class="brand-copy"><strong>くすりとくらしの情報 <span style="color:var(--accent)">Link</span></strong><small>薬のこと、知りたいから探せます</small></span></a><a class="header-link" href="/about/">このサイトについて ↓</a></div></header>
 <main class="wrap">${body}</main><footer><div class="wrap footer-grid">
 <div class="footer-item"><strong>このサイトの情報について</strong><span>情報の根拠や更新について</span></div>
 <div class="footer-item"><strong>根拠資料について</strong><span>電子添文やガイドライン</span></div>
@@ -177,14 +205,14 @@ async function buildPreview(){
  <section class="hero">
   <div><div class="kicker">患者さんの「知りたい」から探す</div><h1>薬のこと、<br><span class="accent">「知りたい」</span>から探せます。</h1><p class="lead">薬の名前だけでなく、飲み忘れ、副作用、生活の中で気になることから情報を探せます。</p></div>
   <div class="entry-grid">
-   <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">💊</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
-   <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">？</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
-   <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">📖</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
+   <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">${iconSvg("pill")}</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
+   <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
+   <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">${iconSvg("book")}</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
   </div>
  </section>
  <section class="section section-divider two-col">
   <div id="drugs"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div><div class="grid"><div class="card"><span>骨粗しょう症の薬</span><h3>アレンドロン酸</h3><p>骨を壊す働きを抑え、骨折を防ぐために使われる薬。</p></div></div></div>
-  <div id="troubles"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">こんなことで困っていませんか？</h2></div><div class="chips"><span class="chip">薬を飲み忘れた</span><span class="chip">胸やけがする</span><span class="chip">歯医者に行く</span></div></div>
+  <div id="troubles"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">こんなことで困っていませんか？</h2></div><div class="chips"><span class="chip"><span class="chip-icon">${iconSvg("clock","mini-icon")}</span><span>薬を飲み忘れた</span></span><span class="chip"><span class="chip-icon">${iconSvg("chest","mini-icon")}</span><span>胸やけがする</span></span><span class="chip"><span class="chip-icon">${iconSvg("tooth","mini-icon")}</span><span>歯医者に行く</span></span></div></div>
  </section>`));
 }
 
@@ -221,10 +249,12 @@ async function buildFromNotion(){
   return `<a class="card" href="/drugs/${esc(slug)}/"><span>${esc(indication||"薬の情報")}</span><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
  }).join("");
 
- const troubleChips = approvedTroubles.slice(0,12).map(t => {
-  const slug = textValue(prop(t,"slug"));
-  const title = textValue(prop(t,"困りごと"));
-  return `<a class="chip" href="/troubles/${esc(slug)}/">${esc(title)}</a>`;
+ const troubleChips=approvedTroubles.slice(0,12).map(t=>{
+  const slug=textValue(prop(t,"slug"));
+  const title=textValue(prop(t,"困りごと"));
+  const category=textValue(prop(t,"カテゴリ"));
+  const icon=iconForTrouble(category,title);
+  return `<a class="chip" href="/troubles/${esc(slug)}/"><span class="chip-icon">${iconSvg(icon,"mini-icon")}</span><span>${esc(title)}</span></a>`;
  }).join("");
 
  const quickTopics = approvedTopics
@@ -242,9 +272,9 @@ async function buildFromNotion(){
  <section class="hero">
   <div><div class="kicker">患者さんの「知りたい」から探す</div><h1>薬のこと、<br><span class="accent">「知りたい」</span>から探せます。</h1><p class="lead">薬の名前だけでなく、飲み忘れ、副作用、生活の中で気になることから情報を探せます。</p></div>
   <div class="entry-grid">
-   <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">💊</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
-   <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">？</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
-   <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">📖</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
+   <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">${iconSvg("pill")}</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
+   <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
+   <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">${iconSvg("book")}</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
   </div>
  </section>
  <section class="section section-divider two-col">
@@ -257,7 +287,12 @@ async function buildFromNotion(){
  for(const d of approvedDrugs){
   const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言")),reviewDate=textValue(prop(d,"最終レビュー"));
   const topicCards=relationIds(prop(d,"トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="card" href="/topics/${esc(textValue(prop(t,"slug")))}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(textValue(prop(t,"トピック名")))}</h3><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`).join("");
-  const troubleCards=relationIds(prop(d,"困りごと")).map(id=>troubleMap.get(id)).filter(Boolean).map(t=>`<a class="card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(textValue(prop(t,"困りごと")))}</h3><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("");
+  const troubleCards=relationIds(prop(d,"困りごと")).map(id=>troubleMap.get(id)).filter(Boolean).map(t=>{
+    const category=textValue(prop(t,"カテゴリ"));
+    const title=textValue(prop(t,"困りごと"));
+    const icon=iconForTrouble(category,title);
+    return `<a class="card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><div style="display:flex;align-items:center;gap:10px"><span class="chip-icon">${iconSvg(icon,"mini-icon")}</span><span>${esc(category)}</span></div><h3>${esc(title)}</h3><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`;
+  }).join("");
   const dir=path.join(OUT,"drugs",slug); await fs.mkdir(dir,{recursive:true});
   await fs.writeFile(path.join(dir,"index.html"),shell(name,`
    <section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">${esc(multiValue(prop(d,"薬効群")).join(" / ")||"薬の情報")}</div><h1>${esc(name)}</h1><p class="lead">${esc(lead)}</p></div></section>
