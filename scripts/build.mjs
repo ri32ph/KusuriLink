@@ -1,4 +1,4 @@
-// kusuri-link v0.5.4 — Notion page icons first, flat SVG fallback
+// kusuri-link v0.6 — audience-separated Q&A
 import { Client } from "@notionhq/client";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -9,6 +9,7 @@ const IDS = {
   topics: process.env.NOTION_TOPICS_DATA_SOURCE_ID,
   troubles: process.env.NOTION_TROUBLES_DATA_SOURCE_ID,
   evidence: process.env.NOTION_EVIDENCE_DATA_SOURCE_ID,
+  questions: process.env.NOTION_QUESTIONS_DATA_SOURCE_ID || "1239feec-4626-4503-a819-250feb112c79",
 };
 
 const REQUIRED_ENV = {
@@ -17,6 +18,7 @@ const REQUIRED_ENV = {
   NOTION_TOPICS_DATA_SOURCE_ID: IDS.topics,
   NOTION_TROUBLES_DATA_SOURCE_ID: IDS.troubles,
   NOTION_EVIDENCE_DATA_SOURCE_ID: IDS.evidence,
+  NOTION_QUESTIONS_DATA_SOURCE_ID: IDS.questions,
 };
 const MISSING_ENV = Object.entries(REQUIRED_ENV).filter(([,v])=>!v).map(([k])=>k);
 const PREVIEW_MODE = MISSING_ENV.length > 0;
@@ -88,6 +90,36 @@ function textValue(p){
 function multiValue(p){return (p?.multi_select||[]).map(x=>x.name);}
 function relationIds(p){return (p?.relation||[]).map(x=>x.id);}
 function checkboxValue(p){return !!p?.checkbox;}
+
+
+const GENERAL_QUESTIONERS=new Set(["患者","家族"]);
+const PROFESSIONAL_QUESTIONERS=new Set(["薬剤師","医師","看護師","歯科","リハ職","管理栄養士","介護職"]);
+
+function isQuestionPublishReady(q){
+  const ok=checkboxValue(prop(q,"公開候補"))
+    && textValue(prop(q,"回答状態"))==="完了"
+    && checkboxValue(prop(q,"根拠確認"))
+    && !!textValue(prop(q,"質問"))
+    && !!textValue(prop(q,"回答案"));
+  const who=textValue(prop(q,"質問者区分"));
+  return ok && (GENERAL_QUESTIONERS.has(who)||PROFESSIONAL_QUESTIONERS.has(who));
+}
+function questionSlug(q){
+  const id=textValue(prop(q,"Question ID")).trim();
+  return id ? id.toLowerCase().replace(/[^a-z0-9_-]+/g,"-") : q.id.replaceAll("-","");
+}
+function qaCard(q,base){
+  const question=textValue(prop(q,"質問"));
+  const answer=textValue(prop(q,"回答案"));
+  const category=textValue(prop(q,"質問カテゴリ"))||"その他";
+  const who=textValue(prop(q,"質問者区分"));
+  return `<a class="qa-card" href="${base}${esc(questionSlug(q))}/">
+    <div class="qa-meta"><span>${esc(category)}</span><span>${esc(who)}</span></div>
+    <div class="qa-q"><span class="qa-letter">Q</span><h3>${esc(question)}</h3></div>
+    <p>${esc(answer.length>100?answer.slice(0,100)+"…":answer)}</p>
+    <span class="qa-more">回答を見る →</span>
+  </a>`;
+}
 
 async function queryAll(notion,dataSourceId){
   const out=[]; let cursor;
@@ -204,8 +236,25 @@ h1 .accent{color:var(--accent)}.lead{font-size:18px;color:#404347;max-width:650p
 .ref{font-size:13px;color:var(--muted)}
 footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);font-size:13px}
 .footer-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}.footer-item{padding-left:18px;border-left:1px solid var(--line)}.footer-item strong{display:block;color:var(--ink);font-size:14px}.footer-item span{display:block;font-size:12px}
+
+.qa-hero{max-width:820px;padding:30px 0 18px}.qa-hero h1{font-size:clamp(38px,5vw,58px)}
+.audience-switch{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.audience-tab{padding:9px 14px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-weight:700;font-size:14px}
+.audience-tab.active{background:var(--accent-soft);border-color:var(--accent);color:#a84334}
+.qa-list{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:18px}
+.qa-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:20px;background:#fff}
+.qa-card:hover{border-color:#f2aa9c;box-shadow:0 8px 24px rgba(32,35,38,.06)}
+.qa-meta{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}.qa-meta span{font-size:11px;color:var(--muted);background:var(--soft);border-radius:999px;padding:3px 9px}
+.qa-q{display:flex;gap:12px;align-items:flex-start}.qa-q h3{font-size:18px;line-height:1.55;margin:1px 0 6px}
+.qa-letter,.qa-answer-letter{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;font-weight:900;flex:0 0 auto}
+.qa-letter{background:var(--soft)}.qa-answer-letter{background:var(--accent);color:#fff}
+.qa-card p{font-size:13px;color:var(--muted);margin:8px 0}.qa-more{font-size:13px;font-weight:800;color:var(--accent)}
+.qa-detail{max-width:860px;margin:0 auto}.qa-question-box{display:flex;gap:15px;align-items:flex-start;padding:22px 0;border-bottom:1px solid var(--line)}
+.qa-question-box h1{font-size:clamp(30px,4.5vw,48px);margin:0;line-height:1.35}
+.qa-answer-box{display:flex;gap:15px;align-items:flex-start;background:var(--accent-pale);border:1px solid #f5d4cd;border-radius:14px;padding:24px;margin-top:24px}
+.qa-answer-box p{font-size:18px;line-height:1.85;margin:0}.related-row{display:flex;gap:9px;flex-wrap:wrap}.related-link{border:1px solid var(--line);border-radius:999px;padding:7px 12px;text-decoration:none;font-size:13px;font-weight:700}
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
+@media(max-width:640px){.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
 
 function shell(title,body){
@@ -246,16 +295,21 @@ async function buildFromNotion(){
  await fs.mkdir(path.join(OUT,"about"),{recursive:true});
  await fs.mkdir(path.join(OUT,"evidence"),{recursive:true});
  await fs.mkdir(path.join(OUT,"professionals"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"qa"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"professionals","qa"),{recursive:true});
 
- const [allDrugs,allTopics,allTroubles]=await Promise.all([
-  queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles)
+ const [allDrugs,allTopics,allTroubles,allQuestions]=await Promise.all([
+  queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles),queryAll(notion,IDS.questions)
  ]);
- console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length}`);
+ console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length} / 質問=${allQuestions.length}`);
 
  const drugRows=allDrugs.filter(d=>isPublishReady(d,`薬剤:${textValue(prop(d,"薬剤名"))||d.id}`));
  const topicRows=allTopics.filter(t=>isPublishReady(t,`トピック:${textValue(prop(t,"トピック名"))||t.id}`));
  const troubleRows=allTroubles.filter(t=>isPublishReady(t,`困りごと:${textValue(prop(t,"困りごと"))||t.id}`));
 
+ const approvedQuestions=allQuestions.filter(isQuestionPublishReady);
+ const generalQuestions=approvedQuestions.filter(q=>GENERAL_QUESTIONERS.has(textValue(prop(q,"質問者区分"))));
+ const professionalQuestions=approvedQuestions.filter(q=>PROFESSIONAL_QUESTIONERS.has(textValue(prop(q,"質問者区分"))));
  const approvedDrugs=[];
  for(const d of drugRows) if(await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
  const approvedTopics=topicRows, approvedTroubles=troubleRows;
@@ -345,6 +399,46 @@ async function buildFromNotion(){
    <section class="section panel soft"><div class="eyebrow">まず確認</div><h2>${esc(short||"関連する情報を確認する")}</h2>${urgency?`<p class="ref">相談の目安：${esc(urgency)}</p>`:""}</section>
    <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">詳しく見る</h2></div><div class="grid">${relatedTopics||"<p>関連トピックはまだない。</p>"}</div></section>
    <section class="section ref">最終レビュー：${esc(reviewDate)}</section>`));
+ }
+
+
+ await fs.writeFile(path.join(OUT,"qa","index.html"),shell("一般向け Q&A",`
+  <section class="qa-hero"><div class="kicker">Q&A｜一般の方へ</div><h1>薬の疑問を、<br><span class="accent">質問から探す。</span></h1>
+  <p class="lead">患者さん・ご家族から寄せられる質問を、分かりやすい言葉でまとめている。</p>
+  <div class="audience-switch"><a class="audience-tab active" href="/qa/">一般の方・ご家族</a><a class="audience-tab" href="/professionals/qa/">医療・介護職の方</a></div></section>
+  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">Q&A一覧</h2></div>
+  <div class="qa-list">${generalQuestions.map(q=>qaCard(q,"/qa/")).join("")||"<p>現在、公開中のQ&Aはない。</p>"}</div></section>`));
+
+ await fs.writeFile(path.join(OUT,"professionals","qa","index.html"),shell("医療・介護職向け Q&A",`
+  <section class="qa-hero"><div class="kicker">Q&A｜医療・介護職の方へ</div><h1>現場の疑問を、<br><span class="accent">根拠とともに確認する。</span></h1>
+  <p class="lead">薬剤師・医師・看護師・歯科・リハ職・管理栄養士・介護職からの質問をまとめている。</p>
+  <div class="audience-switch"><a class="audience-tab" href="/qa/">一般の方・ご家族</a><a class="audience-tab active" href="/professionals/qa/">医療・介護職の方</a></div></section>
+  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">専門職Q&A</h2></div>
+  <div class="qa-list">${professionalQuestions.map(q=>qaCard(q,"/professionals/qa/")).join("")||"<p>現在、公開中のQ&Aはない。</p>"}</div></section>`));
+
+ for(const q of generalQuestions){
+  const slug=questionSlug(q),question=textValue(prop(q,"質問")),answer=textValue(prop(q,"回答案"));
+  const category=textValue(prop(q,"質問カテゴリ")),who=textValue(prop(q,"質問者区分"));
+  const dir=path.join(OUT,"qa",slug);await fs.mkdir(dir,{recursive:true});
+  const drugs=relationIds(prop(q,"関連薬剤")).map(id=>drugMap.get(id)).filter(Boolean).map(d=>`<a class="related-link" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`).join("");
+  const topics=relationIds(prop(q,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="related-link" href="/topics/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"トピック名")))}</a>`).join("");
+  await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span><span>${esc(who)}</span></div>
+  <div class="qa-question-box"><span class="qa-letter">Q</span><h1>${esc(question)}</h1></div>
+  <div class="qa-answer-box"><span class="qa-answer-letter">A</span><p>${esc(answer)}</p></div>
+  ${(drugs||topics)?`<section class="section"><h2>関連する情報</h2><div class="related-row">${drugs}${topics}</div></section>`:""}
+  <p class="ref section">一般的な情報を示すもの。個別の判断は処方医・薬剤師などへ確認する。</p></article>`));
+ }
+
+ for(const q of professionalQuestions){
+  const slug=questionSlug(q),question=textValue(prop(q,"質問")),answer=textValue(prop(q,"回答案"));
+  const category=textValue(prop(q,"質問カテゴリ")),who=textValue(prop(q,"質問者区分"));
+  const dir=path.join(OUT,"professionals","qa",slug);await fs.mkdir(dir,{recursive:true});
+  const drugs=relationIds(prop(q,"関連薬剤")).map(id=>drugMap.get(id)).filter(Boolean).map(d=>`<a class="related-link" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`).join("");
+  const topics=relationIds(prop(q,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="related-link" href="/topics/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"トピック名")))}</a>`).join("");
+  await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span><span>${esc(who)}</span><span>医療・介護職向け</span></div>
+  <div class="qa-question-box"><span class="qa-letter">Q</span><h1>${esc(question)}</h1></div>
+  <div class="qa-answer-box"><span class="qa-answer-letter">A</span><p>${esc(answer)}</p></div>
+  ${(drugs||topics)?`<section class="section"><h2>関連する薬剤・トピック</h2><div class="related-row">${drugs}${topics}</div></section>`:""}</article>`));
  }
 
  await fs.writeFile(path.join(OUT,"about","index.html"),shell("このサイトについて",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">このサイトについて</div><h1>情報の確認方法</h1><p class="lead">患者さんが行動に移しやすい表現を優先しつつ、根拠資料を確認して掲載する。</p></div></section>`));
