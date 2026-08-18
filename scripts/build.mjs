@@ -1,4 +1,4 @@
-// kusuri-link v0.6 — audience-separated Q&A
+// kusuri-link v0.6.1 — Q&A links on home
 import { Client } from "@notionhq/client";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -211,7 +211,7 @@ main{padding:46px 0 84px}
 .kicker,.eyebrow{color:var(--accent);font-size:13px;font-weight:800;letter-spacing:.06em}
 h1{margin:8px 0 18px;font-size:clamp(40px,6vw,68px);line-height:1.16;letter-spacing:-.03em}
 h1 .accent{color:var(--accent)}.lead{font-size:18px;color:#404347;max-width:650px;margin:0}
-.entry-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.entry-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 .entry{display:block;text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;min-height:250px;box-shadow:var(--shadow);position:relative;transition:.15s}
 .entry:hover{transform:translateY(-3px);border-color:#f4b4a8}
 .num{display:block;color:var(--accent);font-size:25px;font-weight:800}.icon-ring{width:88px;height:88px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;margin:20px auto 24px;color:var(--ink)}.flat-icon{width:52px;height:52px;display:block}.mini-icon{width:24px;height:24px;display:block;color:var(--ink)}
@@ -228,7 +228,7 @@ h1 .accent{color:var(--accent)}.lead{font-size:18px;color:#404347;max-width:650p
 .card:hover{border-color:#f4b4a8;box-shadow:0 7px 20px rgba(32,35,38,.05)}
 .card span{display:inline-block;color:var(--muted);font-size:11px;font-weight:700;background:var(--soft);border-radius:999px;padding:3px 9px}
 .card h3{font-size:18px;margin:7px 0 2px}.card p{font-size:13px;color:var(--muted);margin:0}
-.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .chip{display:flex;align-items:center;gap:10px;text-decoration:none;background:#fff;border:1px solid var(--line);border-radius:11px;padding:16px 18px;font-size:15px;font-weight:700}
 .chip:before{content:"";width:10px;height:10px;border:2px solid var(--accent);border-radius:50%}
 .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px}.panel.soft{background:var(--accent-pale);border-color:#f6d4cc}
@@ -263,7 +263,7 @@ function shell(title,body){
 <main class="wrap">${body}</main><footer><div class="wrap footer-grid">
 <div class="footer-item"><strong>このサイトの情報について</strong><span>情報の根拠や更新について</span></div>
 <div class="footer-item"><strong>根拠資料について</strong><span>電子添文やガイドライン</span></div>
-<div class="footer-item"><strong>医療・介護職の方へ</strong><span>専門職向けの情報</span></div>
+<div class="footer-item"><strong><a href="/professionals/qa/" style="text-decoration:none">医療・介護職の方へ</a></strong><span>専門職向けQ&amp;Aを見る</span></div>
 <div class="footer-item"><strong>迷ったときは</strong><span>処方医・薬剤師などへ確認する</span></div>
 </div></footer></body></html>`;
 }
@@ -278,6 +278,7 @@ async function buildPreview(){
    <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">${iconSvg("pill")}</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
    <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
    <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">${iconSvg("book")}</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
+   <a class="entry" href="/qa/"><span class="num">04</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>Q&amp;Aから探す</h3><p>患者さん・ご家族からのよくある質問を見る</p><span class="arrow">→</span></a>
   </div>
  </section>
  <section class="section section-divider two-col">
@@ -350,6 +351,7 @@ async function buildFromNotion(){
    <a class="entry" href="#drugs"><span class="num">01</span><span class="icon-ring">${iconSvg("pill")}</span><h3>薬から探す</h3><p>薬の名前が分かっている方はこちら</p><span class="arrow">→</span></a>
    <a class="entry" href="#troubles"><span class="num">02</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>困りごとから探す</h3><p>今困っていることや不安なことから探す</p><span class="arrow">→</span></a>
    <a class="entry" href="#quick"><span class="num">03</span><span class="icon-ring">${iconSvg("book")}</span><h3>まず知っておきたい</h3><p>飲み方や注意点など、基本的な情報を見る</p><span class="arrow">→</span></a>
+   <a class="entry" href="/qa/"><span class="num">04</span><span class="icon-ring">${iconSvg("bubble")}</span><h3>Q&amp;Aから探す</h3><p>患者さん・ご家族からのよくある質問を見る</p><span class="arrow">→</span></a>
   </div>
  </section>
  <section class="section section-divider two-col">
