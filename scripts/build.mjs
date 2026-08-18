@@ -12,8 +12,17 @@ const IDS = {
   evidence: process.env.NOTION_EVIDENCE_DATA_SOURCE_ID,
 };
 
-for (const [key, value] of Object.entries({ NOTION_API_KEY: process.env.NOTION_API_KEY, ...IDS })) {
-  if (!value) throw new Error(`Missing environment variable: ${key}`);
+const REQUIRED_ENV = {
+  NOTION_API_KEY: process.env.NOTION_API_KEY,
+  NOTION_DRUGS_DATA_SOURCE_ID: IDS.drugs,
+  NOTION_TOPICS_DATA_SOURCE_ID: IDS.topics,
+  NOTION_TROUBLES_DATA_SOURCE_ID: IDS.troubles,
+  NOTION_EVIDENCE_DATA_SOURCE_ID: IDS.evidence,
+};
+const MISSING_ENV = Object.entries(REQUIRED_ENV).filter(([,v]) => !v).map(([k]) => k);
+const PREVIEW_MODE = MISSING_ENV.length > 0;
+if (PREVIEW_MODE) {
+  console.warn(`PREVIEW MODE: Notion API settings are incomplete: ${MISSING_ENV.join(", ")}`);
 }
 
 const esc = (s="") => String(s)
@@ -137,7 +146,97 @@ async function hasRequiredBrandEvidence(drug) {
   return false;
 }
 
+
+async function buildPreview() {
+  await fs.rm(OUT, { recursive: true, force: true });
+  await fs.mkdir(path.join(OUT,"drugs","alendronate"), { recursive: true });
+  await fs.mkdir(path.join(OUT,"topics","bisphosphonate-missed-dose"), { recursive: true });
+
+  const top = shell("トップ", `
+    <section class="hero">
+      <div class="kicker">プレビューモード</div>
+      <h1>くすりとくらしの情報 Link</h1>
+      <p class="lead">Notion APIはまだ未設定だ。画面確認用のサンプルデータを表示している。</p>
+    </section>
+    <section class="panel">
+      <h2>薬から探す</h2>
+      <div class="grid">
+        <a class="card" href="/drugs/alendronate/">
+          <span>骨粗しょう症の薬</span>
+          <h3>アレンドロン酸</h3>
+          <p>骨を壊す働きを抑え、骨折を防ぐために使われる薬。</p>
+        </a>
+      </div>
+    </section>
+    <section class="panel ref">
+      現在はプレビュー表示。Notion API設定後は、レビュー完了＋Web公開ONのデータへ自動的に切り替わる。
+    </section>`);
+  await fs.writeFile(path.join(OUT,"index.html"), top);
+
+  const drug = shell("アレンドロン酸", `
+    <section class="hero">
+      <div class="kicker">ビスホスホネート</div>
+      <h1>アレンドロン酸</h1>
+      <p class="lead">骨を壊す働きを抑えて、骨を折れにくくするために使う薬だ。</p>
+    </section>
+    <section class="panel">
+      <h2>まず知っておきたいこと</h2>
+      <p>朝起きたときに、水約180mLで飲む。服用後少なくとも30分は横にならず、飲食やほかの薬を避ける。</p>
+    </section>
+    <section class="panel">
+      <h2>困りごとから探す</h2>
+      <div class="grid">
+        <a class="card" href="/topics/bisphosphonate-missed-dose/">
+          <span>飲み忘れ</span>
+          <h3>薬を飲み忘れた</h3>
+          <p>週1回35mgを飲み忘れた場合の対応。</p>
+        </a>
+        <div class="card">
+          <span>副作用</span>
+          <h3>胸やけ・飲み込みにくさ</h3>
+          <p>相談が必要な症状の目安を確認する。</p>
+        </div>
+        <div class="card">
+          <span>歯科</span>
+          <h3>歯医者に行くことになった</h3>
+          <p>自己判断で休薬せず、薬を使っていることを伝える。</p>
+        </div>
+        <div class="card">
+          <span>治療期間</span>
+          <h3>いつまで飲むの？</h3>
+          <p>数年ごとに骨折リスクを見直して判断する。</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel ref">
+      これはAPI未設定時のサンプル表示で、本番公開用情報ではない。
+    </section>`);
+  await fs.writeFile(path.join(OUT,"drugs","alendronate","index.html"), drug);
+
+  const topic = shell("アレンドロン酸を飲み忘れたら", `
+    <section class="hero">
+      <div class="kicker">週1回35mgを使っている方へ</div>
+      <h1>アレンドロン酸を飲み忘れたら？</h1>
+      <p class="lead">飲み忘れた日は飲まず、翌朝1錠。その後はいつもの曜日に戻す。</p>
+    </section>
+    <section class="panel">
+      <h2>まず結論</h2>
+      <p><b>2回分を一度に飲まない。</b></p>
+    </section>
+    <section class="panel">
+      <h2>どうすればいい？</h2>
+      <p>翌朝、起きたときに1錠飲み、その後はもともとの決めた曜日に戻す。</p>
+    </section>
+    <section class="panel ref">
+      プレビュー用サンプル。Notion API設定後はNotionのレビュー済み内容を使用する。
+    </section>`);
+  await fs.writeFile(path.join(OUT,"topics","bisphosphonate-missed-dose","index.html"), topic);
+
+  console.log("Built preview site because Notion API settings are incomplete.");
+}
+
 async function main() {
+  if (PREVIEW_MODE) return buildPreview();
   await fs.rm(OUT, { recursive: true, force: true });
   await fs.mkdir(path.join(OUT,"drugs"), { recursive: true });
   await fs.mkdir(path.join(OUT,"topics"), { recursive: true });
