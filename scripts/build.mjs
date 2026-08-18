@@ -262,6 +262,62 @@ function textValue(p) {
 }
 function relationIds(p){ return (p?.relation || []).map(x=>x.id); }
 
+function multiValue(p){ return (p?.multi_select || []).map(x=>x.name); }
+function checkboxValue(p){ return !!p?.checkbox; }
+
+async function getBlocks(notion, pageId) {
+  const all = [];
+  let cursor;
+  do {
+    const res = await notion.blocks.children.list({
+      block_id: pageId,
+      page_size: 100,
+      start_cursor: cursor,
+    });
+    all.push(...res.results);
+    cursor = res.has_more ? res.next_cursor : undefined;
+  } while (cursor);
+  return all;
+}
+
+function richTextFromBlock(block) {
+  const body = block?.[block.type];
+  return (body?.rich_text || []).map(x => x.plain_text).join("");
+}
+
+function patientSectionsFromBlocks(blocks) {
+  const excluded = new Set([
+    "医療・介護職向け",
+    "医療・介護職向け要点",
+    "医療・介護職向け要点",
+    "Clinical Point",
+    "編集メモ",
+    "根拠",
+    "Webでの見せ方",
+    "患者向けWebでの見せ方"
+  ]);
+  const sections = [];
+  let current = null;
+
+  for (const block of blocks) {
+    if (["heading_1","heading_2","heading_3"].includes(block.type)) {
+      const title = richTextFromBlock(block).trim();
+      current = { title, items: [] };
+      sections.push(current);
+      continue;
+    }
+    const text = richTextFromBlock(block).trim();
+    if (!text) continue;
+    if (!current) {
+      current = { title: "", items: [] };
+      sections.push(current);
+    }
+    current.items.push({ type:block.type, text });
+  }
+
+  return sections.filter(s => !excluded.has(s.title));
+}
+
 async function queryAll(notion, dataSourceId, filter) {
   const out = [];
   let cursor;
@@ -309,8 +365,14 @@ async function hasRequiredBrandEvidence(notion, drug) {
 
 async function buildFromNotion() {
   const notion = new Client({ auth: process.env.NOTION_API_KEY });
+
   await fs.rm(OUT, { recursive: true, force: true });
   await fs.mkdir(path.join(OUT,"drugs"), { recursive: true });
+  await fs.mkdir(path.join(OUT,"topics"), { recursive: true });
+  await fs.mkdir(path.join(OUT,"troubles"), { recursive: true });
+  await fs.mkdir(path.join(OUT,"about"), { recursive: true });
+  await fs.mkdir(path.join(OUT,"evidence"), { recursive: true });
+  await fs.mkdir(path.join(OUT,"professionals"), { recursive: true });
 
   const publishFilter = {
     and: [
@@ -320,65 +382,269 @@ async function buildFromNotion() {
     ]
   };
 
-  const drugs = await queryAll(notion, IDS.drugs, publishFilter);
-  console.log(`[PUBLICATION CHECK] 基本公開条件を満たす薬剤: ${drugs.length}件`);
-  const approved = [];
-  for (const d of drugs) {
+  const [drugRows, topicRows, troubleRows] = await Promise.all([
+    queryAll(notion, IDS.drugs, publishFilter),
+    queryAll(notion, IDS.topics, publishFilter),
+    queryAll(notion, IDS.troubles, publishFilter),
+  ]);
+
+  console.log(`[PUBLICATION CHECK] 基本公開条件 薬剤=${drugRows.length} / トピック=${topicRows.length} / 困りごと=${troubleRows.length}`);
+
+  const approvedDrugs = [];
+  for (const d of drugRows) {
     const name = textValue(prop(d,"薬剤名"));
     const slug = textValue(prop(d,"slug"));
-    console.log(`[PUBLICATION CHECK] 確認開始: ${name} / slug=${slug || "未設定"}`);
-
     if (!slug) {
-      console.warn(`[PUBLICATION CHECK] ${name}: slug未設定のため非公開`);
+      console.warn(`[PUBLICATION CHECK] ${name}: slug未設定`);
       continue;
     }
-
-    if (await hasRequiredBrandEvidence(notion,d)) {
-      approved.push(d);
-      console.log(`[PUBLICATION CHECK] ${name}: 公開対象`);
-    }
+    if (await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
   }
 
-  const cards = approved.map(d => {
-    const name=textValue(prop(d,"薬剤名"));
-    const slug=textValue(prop(d,"slug"));
-    const lead=textValue(prop(d,"患者向け一言"));
-    return `<a class="card" href="/drugs/${esc(slug)}/"><span>薬から探す</span><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
+  const approvedTopics = topicRows.filter(t => {
+    const slug = textValue(prop(t,"slug"));
+    if (!slug) {
+      console.warn(`[PUBLICATION CHECK] トピック ${textValue(prop(t,"トピック名"))}: slug未設定`);
+      return false;
+    }
+    return true;
+  });
+
+  const approvedTroubles = troubleRows.filter(t => {
+    const slug = textValue(prop(t,"slug"));
+    if (!slug) {
+      console.warn(`[PUBLICATION CHECK] 困りごと ${textValue(prop(t,"困りごと"))}: slug未設定`);
+      return false;
+    }
+    return true;
+  });
+
+  const drugMap = new Map(approvedDrugs.map(x => [x.id, x]));
+  const topicMap = new Map(approvedTopics.map(x => [x.id, x]));
+  const troubleMap = new Map(approvedTroubles.map(x => [x.id, x]));
+
+  const drugCards = approvedDrugs.map(d => {
+    const name = textValue(prop(d,"薬剤名"));
+    const slug = textValue(prop(d,"slug"));
+    const lead = textValue(prop(d,"患者向け一言"));
+    const indication = multiValue(prop(d,"主な適応")).join(" / ");
+    return `<a class="card" href="/drugs/${esc(slug)}/"><span>${esc(indication || "薬の情報")}</span><h3>${esc(name)}</h3><p>${esc(lead)}</p></a>`;
   }).join("");
+
+  const troubleChips = approvedTroubles.slice(0,12).map(t => {
+    const name = textValue(prop(t,"困りごと"));
+    const slug = textValue(prop(t,"slug"));
+    return `<a class="chip" href="/troubles/${esc(slug)}/">${esc(name)}</a>`;
+  }).join("");
+
+  const quickTopics = approvedTopics
+    .filter(t => ["服用方法","作用"].includes(textValue(prop(t,"カテゴリ"))))
+    .slice(0,6)
+    .map(t => {
+      const name = textValue(prop(t,"トピック名"));
+      const slug = textValue(prop(t,"slug"));
+      const summary = textValue(prop(t,"患者向け要約"));
+      return `<a class="card" href="/topics/${esc(slug)}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(name)}</h3><p>${esc(summary)}</p></a>`;
+    }).join("");
 
   await fs.writeFile(path.join(OUT,"index.html"), shell("トップ", `
     <section class="hero">
       <div class="kicker">くすりの情報を、今知りたいことから</div>
       <h1>薬について、<br>知りたいことから探せます。</h1>
-      <p class="lead">レビューと公開承認が完了した薬情報を掲載している。</p>
+      <p class="lead">「薬の名前は分かる」「飲み忘れた」「副作用が心配」など、今の状況に合わせて情報を探せる。</p>
     </section>
-    <section class="section"><h2 class="section-title">薬から探す</h2><div class="grid">${cards || "<p>現在、公開済みの薬はない。</p>"}</div></section>
+
+    <section class="entry-grid">
+      <a class="entry" href="#drugs"><span class="icon">💊</span><h3>薬から探す</h3><p>薬の名前が分かっているとき</p></a>
+      <a class="entry" href="#troubles"><span class="icon">🙋</span><h3>困りごとから探す</h3><p>飲み忘れ・副作用・歯科受診など</p></a>
+      <a class="entry" href="#quick"><span class="icon">✓</span><h3>まず知っておきたい</h3><p>飲み方や大切な注意点を確認する</p></a>
+    </section>
+
+    <section id="drugs" class="section">
+      <h2 class="section-title">薬から探す</h2>
+      <div class="grid">${drugCards || "<p>現在、公開済みの薬はない。</p>"}</div>
+    </section>
+
+    <section id="troubles" class="section">
+      <h2 class="section-title">困りごとから探す</h2>
+      <p class="section-intro">医学用語ではなく、今困っていることから探す。</p>
+      <div class="chips">${troubleChips || "<span class='ref'>現在、公開済みの困りごとはない。</span>"}</div>
+    </section>
+
+    <section id="quick" class="section">
+      <h2 class="section-title">まず知っておきたい</h2>
+      <div class="grid">${quickTopics || "<p>現在、公開済みのトピックはない。</p>"}</div>
+    </section>
   `));
 
-  for (const d of approved) {
+  // Drug pages
+  for (const d of approvedDrugs) {
     const name = textValue(prop(d,"薬剤名"));
     const slug = textValue(prop(d,"slug"));
     const lead = textValue(prop(d,"患者向け一言"));
     const reviewDate = textValue(prop(d,"最終レビュー"));
 
+    const relatedTopicIds = relationIds(prop(d,"トピック"));
+    const relatedTroubleIds = relationIds(prop(d,"困りごと"));
+
+    const topicCards = relatedTopicIds
+      .map(id => topicMap.get(id))
+      .filter(Boolean)
+      .map(t => {
+        const tname = textValue(prop(t,"トピック名"));
+        const tslug = textValue(prop(t,"slug"));
+        const cat = textValue(prop(t,"カテゴリ"));
+        const summary = textValue(prop(t,"患者向け要約"));
+        return `<a class="card" href="/topics/${esc(tslug)}/"><span>${esc(cat)}</span><h3>${esc(tname)}</h3><p>${esc(summary)}</p></a>`;
+      }).join("");
+
+    const troubleCards = relatedTroubleIds
+      .map(id => troubleMap.get(id))
+      .filter(Boolean)
+      .map(t => {
+        const tname = textValue(prop(t,"困りごと"));
+        const tslug = textValue(prop(t,"slug"));
+        const cat = textValue(prop(t,"カテゴリ"));
+        const short = textValue(prop(t,"短い回答"));
+        return `<a class="card" href="/troubles/${esc(tslug)}/"><span>${esc(cat)}</span><h3>${esc(tname)}</h3><p>${esc(short)}</p></a>`;
+      }).join("");
+
     const dir = path.join(OUT,"drugs",slug);
     await fs.mkdir(dir,{recursive:true});
     await fs.writeFile(path.join(dir,"index.html"), shell(name, `
       <section class="hero">
-        <div class="kicker">薬の情報</div>
+        <div class="kicker">${esc(multiValue(prop(d,"薬効群")).join(" / ") || "薬の情報")}</div>
         <h1>${esc(name)}</h1>
         <p class="lead">${esc(lead)}</p>
       </section>
-      <section class="section panel soft">
-        <div class="eyebrow">公開確認</div>
-        <h2>根拠資料を確認して掲載</h2>
-        <p>先発医薬品の電子添文が根拠資料として登録され、レビュー・公開条件を満たしている。</p>
+
+      <section class="section">
+        <h2 class="section-title">この薬について知る</h2>
+        <div class="grid">${topicCards || "<p>公開済みトピックはまだない。</p>"}</div>
       </section>
+
+      <section class="section">
+        <h2 class="section-title">困りごとから探す</h2>
+        <div class="grid">${troubleCards || "<p>公開済みの困りごとはまだない。</p>"}</div>
+      </section>
+
       <section class="section panel ref">最終レビュー：${esc(reviewDate)}</section>
     `));
   }
 
-  console.log(`Built ${approved.length} approved drug(s) from Notion.`);
+  // Topic pages
+  for (const t of approvedTopics) {
+    const title = textValue(prop(t,"トピック名"));
+    const slug = textValue(prop(t,"slug"));
+    const category = textValue(prop(t,"カテゴリ"));
+    const summary = textValue(prop(t,"患者向け要約"));
+    const action = textValue(prop(t,"患者向け対応"));
+    const professional = textValue(prop(t,"専門職向け要約"));
+    const reviewDate = textValue(prop(t,"最終レビュー"));
+
+    const blocks = await getBlocks(notion, t.id);
+    const sections = patientSectionsFromBlocks(blocks).map(sec => {
+      const body = sec.items.map(i => `<p>${esc(i.text)}</p>`).join("");
+      return `<section class="section panel">${sec.title ? `<h2>${esc(sec.title)}</h2>` : ""}${body}</section>`;
+    }).join("");
+
+    const drugLinks = relationIds(prop(t,"関連薬剤"))
+      .map(id => drugMap.get(id))
+      .filter(Boolean)
+      .map(d => `<a class="chip" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`)
+      .join("");
+
+    const troubleLinks = relationIds(prop(t,"困りごと"))
+      .map(id => troubleMap.get(id))
+      .filter(Boolean)
+      .map(x => `<a class="chip" href="/troubles/${esc(textValue(prop(x,"slug")))}/">${esc(textValue(prop(x,"困りごと")))}</a>`)
+      .join("");
+
+    const dir = path.join(OUT,"topics",slug);
+    await fs.mkdir(dir,{recursive:true});
+    await fs.writeFile(path.join(dir,"index.html"), shell(title, `
+      <section class="hero">
+        <div class="kicker">${esc(category)}</div>
+        <h1>${esc(title)}</h1>
+        <p class="lead">${esc(summary)}</p>
+      </section>
+
+      ${action ? `<section class="section panel soft"><div class="eyebrow">どうすればいい？</div><p>${esc(action)}</p></section>` : ""}
+      ${sections}
+
+      ${drugLinks ? `<section class="section panel"><h2>関連する薬</h2><div class="chips">${drugLinks}</div></section>` : ""}
+      ${troubleLinks ? `<section class="section panel"><h2>関連する困りごと</h2><div class="chips">${troubleLinks}</div></section>` : ""}
+
+      ${professional ? `<details class="section panel"><summary><b>医療・介護職向け要点</b></summary><p>${esc(professional)}</p></details>` : ""}
+
+      <section class="section panel ref">最終レビュー：${esc(reviewDate)}</section>
+    `));
+  }
+
+  // Trouble pages
+  for (const t of approvedTroubles) {
+    const title = textValue(prop(t,"困りごと"));
+    const slug = textValue(prop(t,"slug"));
+    const category = textValue(prop(t,"カテゴリ"));
+    const question = textValue(prop(t,"患者さんの質問例"));
+    const short = textValue(prop(t,"短い回答"));
+    const urgency = textValue(prop(t,"緊急度"));
+    const reviewDate = textValue(prop(t,"最終レビュー"));
+
+    const relatedTopics = relationIds(prop(t,"関連トピック"))
+      .map(id => topicMap.get(id))
+      .filter(Boolean)
+      .map(x => {
+        const n=textValue(prop(x,"トピック名")), sl=textValue(prop(x,"slug")), sm=textValue(prop(x,"患者向け要約"));
+        return `<a class="card" href="/topics/${esc(sl)}/"><span>${esc(textValue(prop(x,"カテゴリ")))}</span><h3>${esc(n)}</h3><p>${esc(sm)}</p></a>`;
+      }).join("");
+
+    const relatedDrugs = relationIds(prop(t,"関連薬剤"))
+      .map(id => drugMap.get(id))
+      .filter(Boolean)
+      .map(x => `<a class="chip" href="/drugs/${esc(textValue(prop(x,"slug")))}/">${esc(textValue(prop(x,"薬剤名")))}</a>`)
+      .join("");
+
+    const dir = path.join(OUT,"troubles",slug);
+    await fs.mkdir(dir,{recursive:true});
+    await fs.writeFile(path.join(dir,"index.html"), shell(title, `
+      <section class="hero">
+        <div class="kicker">${esc(category)}</div>
+        <h1>${esc(title)}</h1>
+        ${question ? `<p class="lead">「${esc(question)}」</p>` : ""}
+      </section>
+
+      <section class="section panel soft">
+        <div class="eyebrow">まず確認</div>
+        <h2>${esc(short || "関連する情報を確認する")}</h2>
+        ${urgency ? `<p class="ref">相談の目安：${esc(urgency)}</p>` : ""}
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">詳しく見る</h2>
+        <div class="grid">${relatedTopics || "<p>関連トピックはまだない。</p>"}</div>
+      </section>
+
+      ${relatedDrugs ? `<section class="section panel"><h2>関連する薬</h2><div class="chips">${relatedDrugs}</div></section>` : ""}
+
+      <section class="section panel ref">最終レビュー：${esc(reviewDate)}</section>
+    `));
+  }
+
+  await fs.writeFile(path.join(OUT,"about","index.html"), shell("このサイトの情報について", `
+    <section class="hero"><div class="kicker">このサイトについて</div><h1>情報の確認方法</h1><p class="lead">患者さんが行動に移しやすい表現を優先しつつ、根拠資料を確認して掲載する。</p></section>
+    <section class="section panel"><h2>公開条件</h2><p>レビュー完了、Web公開ON、最終レビュー日ありに加え、薬剤ページでは先発医薬品の電子添文を必須根拠としている。</p></section>
+  `));
+
+  await fs.writeFile(path.join(OUT,"evidence","index.html"), shell("根拠資料について", `
+    <section class="hero"><div class="kicker">Evidence</div><h1>根拠資料について</h1><p class="lead">先発医薬品の電子添文を基本資料とし、患者向医薬品ガイド、公的安全性情報、ガイドライン、論文などを必要に応じて追加する。</p></section>
+  `));
+
+  await fs.writeFile(path.join(OUT,"professionals","index.html"), shell("医療・介護職の方へ", `
+    <section class="hero"><div class="kicker">For Professionals</div><h1>医療・介護職の方へ</h1><p class="lead">患者向け情報と同じ根拠から、専門職向け要点を展開する。</p></section>
+  `));
+
+  console.log(`Built drugs=${approvedDrugs.length}, topics=${approvedTopics.length}, troubles=${approvedTroubles.length}`);
 }
 
 async function main() {
