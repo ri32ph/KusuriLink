@@ -401,8 +401,17 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .class-drug{display:block;text-decoration:none;border:1px solid var(--line);border-radius:13px;padding:18px;background:#fff}.class-drug h3{margin:0 0 6px;font-size:19px}.class-drug p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
 .class-section{margin-top:42px;padding-top:22px;border-top:1px solid var(--line)}
 
+
+.drug-entry-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0 18px}
+.drug-entry-action{display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:#fff;font-weight:800}
+.drug-entry-action:hover{border-color:#efad9f;box-shadow:0 8px 22px rgba(32,35,38,.05)}
+.drug-entry-action.primary{background:var(--accent-pale);border-color:#f2c8be}
+.drug-entry-action .action-copy small{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:2px}
+.drug-entry-action .action-copy strong{display:block;font-size:16px}
+.drug-entry-action .action-arrow{color:var(--accent);font-size:22px;line-height:1}
+
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.class-grid,.class-drugs{grid-template-columns:1fr}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
+@media(max-width:640px){.drug-entry-actions{grid-template-columns:1fr}.class-grid,.class-drugs{grid-template-columns:1fr}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
 
 function shell(title,body){
@@ -519,7 +528,11 @@ async function buildFromNotion(){
   <a class="home-nav-card" href="/topics/"><span class="nav-no">04</span><span class="home-nav-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 12h12a5 5 0 0 1 5 5v20a5 5 0 0 0-5-5H9z"/><path d="M39 12H27a5 5 0 0 0-5 5v20a5 5 0 0 1 5-5h12z"/></svg></span><h3>まず知っておきたい</h3><p>飲み方・注意点など</p></a>
  </nav>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div>
-  <div class="preview-list">${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名"))+" "+drugClassValue(d))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${drugClassValue(d)?`<small>${esc(drugClassValue(d))}</small>`:""}<strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div><a class="more-link" href="/drugs/">薬をすべて見る →</a></section>
+  <div class="drug-entry-actions">
+   <a class="drug-entry-action primary" href="/drugs/"><span class="action-copy"><small>薬の名前が分かる</small><strong>薬剤名から探す</strong></span><span class="action-arrow">→</span></a>
+   <a class="drug-entry-action" href="/classes/"><span class="action-copy"><small>薬のグループから探したい</small><strong>薬効群から探す</strong></span><span class="action-arrow">→</span></a>
+  </div>
+  <div class="preview-list">${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名"))+" "+drugClassValue(d))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${drugClassValue(d)?`<small>${esc(drugClassValue(d))}</small>`:""}<strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div><a class="more-link" href="/drugs/">薬剤名の一覧を見る →</a></section>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬で困ったときは</h2><p class="lead" style="font-size:15px;margin-top:-8px">多くの薬に共通する、基本的な考え方をまとめています。</p></div>
   <div class="preview-list">${generalTroubles.slice(0,6).map(t=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(t,"困りごと")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><strong>${esc(textValue(prop(t,"困りごと")))}</strong></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div><a class="more-link" href="/troubles/">困りごとをすべて見る →</a></section>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">最近のQ&amp;A</h2></div>
@@ -557,7 +570,7 @@ async function buildFromNotion(){
 
  await fs.writeFile(path.join(OUT,"classes","index.html"),shell("薬効群から探す",`
   <section class="class-index"><div class="kicker">DRUG CLASS</div><h1>薬効群から探す</h1>
-  <p class="lead">薬の名前だけでなく、薬のはたらきやグループから関連する薬を探せます。</p>
+  <p class="lead">薬の名前が分からないときも、薬のグループから関連する薬を探せます。</p>
   <div class="class-grid">${drugClasses.map(([name,drugs])=>`<a class="class-card" href="/classes/${esc(slugifyClass(name))}/"><small>薬効群</small><h2>${esc(name)}</h2><p>${drugs.length}件の薬を掲載</p></a>`).join("")||"<p>現在、薬効群の情報はありません。</p>"}</div></section>
  `));
 
