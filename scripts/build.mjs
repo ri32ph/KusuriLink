@@ -496,7 +496,7 @@ async function buildFromNotion(){
   <a class="home-nav-card" href="/topics/"><span class="nav-no">04</span><span class="home-nav-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 12h12a5 5 0 0 1 5 5v20a5 5 0 0 0-5-5H9z"/><path d="M39 12H27a5 5 0 0 0-5 5v20a5 5 0 0 1 5-5h12z"/></svg></span><h3>まず知っておきたい</h3><p>飲み方・注意点など</p></a>
  </nav>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div>
-  <div class="preview-list">${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div><a class="more-link" href="/drugs/">薬をすべて見る →</a></section>
+  <div class="preview-list">${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名"))+" "+textValue(prop(d,"薬効群")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${textValue(prop(d,"薬効群"))?`<small>${esc(textValue(prop(d,"薬効群")))}</small>`:""}<strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div><a class="more-link" href="/drugs/">薬をすべて見る →</a></section>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬で困ったときは</h2><p class="lead" style="font-size:15px;margin-top:-8px">多くの薬に共通する、基本的な考え方をまとめています。</p></div>
   <div class="preview-list">${generalTroubles.slice(0,6).map(t=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(t,"困りごと")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><strong>${esc(textValue(prop(t,"困りごと")))}</strong></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div><a class="more-link" href="/troubles/">困りごとをすべて見る →</a></section>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">最近のQ&amp;A</h2></div>
@@ -509,7 +509,7 @@ async function buildFromNotion(){
  await fs.writeFile(path.join(OUT,"drugs","index.html"),shell("薬から探す",`
   <section class="directory-head"><div class="kicker">DRUG DIRECTORY</div><h1>薬から探す</h1><p class="lead">薬剤名から情報を探せる。</p></section>
   <input id="filter" class="filter-input" type="search" placeholder="薬剤名を入力">
-  <div class="directory-grid">${approvedDrugs.map(d=>`<a class="directory-card" data-filter="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><h2>${esc(textValue(prop(d,"薬剤名")))}</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div>${filterScript}
+  <div class="directory-grid">${approvedDrugs.map(d=>`<a class="directory-card" data-filter="${esc(textValue(prop(d,"薬剤名"))+" "+textValue(prop(d,"薬効群")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${textValue(prop(d,"薬効群"))?`<small>${esc(textValue(prop(d,"薬効群")))}</small>`:""}<h2>${esc(textValue(prop(d,"薬剤名")))}</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div>${filterScript}
  `));
  await fs.writeFile(path.join(OUT,"troubles","index.html"),shell("困りごとから探す",`
   <section class="directory-head"><div class="kicker">TROUBLE DIRECTORY</div><h1>困りごとから探す</h1><p class="lead">症状や生活の場面から関連情報を探せる。一般的な原則に加えて、薬効群・薬剤ごとの情報も掲載しています。</p></section>
