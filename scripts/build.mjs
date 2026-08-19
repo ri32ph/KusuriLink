@@ -91,6 +91,16 @@ function multiValue(p){return (p?.multi_select||[]).map(x=>x.name);}
 function drugClassValue(d){
   return multiValue(prop(d,"薬効群")).join(" / ");
 }
+function drugClassNames(d){
+  return multiValue(prop(d,"薬効群"));
+}
+function slugifyClass(name){
+  return String(name||"").normalize("NFKC").trim()
+    .replace(/[\\/／]/g,"-").replace(/\s+/g,"-")
+    .replace(/[?#%&+]/g,"-").replace(/-+/g,"-")
+    .replace(/^-|-$/g,"") || "class";
+}
+
 function relationIds(p){return (p?.relation||[]).map(x=>x.id);}
 function checkboxValue(p){return !!p?.checkbox;}
 
@@ -382,8 +392,17 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .about-page{max-width:860px;padding:42px 0 70px}.about-page h1{font-size:clamp(38px,5vw,58px);margin:8px 0 18px}.about-page h2{font-size:24px;margin:42px 0 12px;padding-top:18px;border-top:1px solid var(--line)}.about-page p{font-size:16px;line-height:2;margin:0 0 14px}.about-note{padding:20px 22px;border-radius:14px;background:var(--soft);margin-top:20px}
 .footer-item a{color:inherit;text-decoration:none}.footer-item a:hover{color:var(--accent)}
 
+
+.class-index{padding:34px 0 60px}.class-index h1,.class-page h1{font-size:clamp(36px,5vw,56px);margin:8px 0 12px}
+.class-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:24px}
+.class-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:20px;background:#fff}
+.class-card:hover{border-color:#efad9f}.class-card small{color:var(--accent);font-weight:800}.class-card h2{font-size:19px;margin:7px 0 5px}.class-card p{color:var(--muted);font-size:13px;margin:0}
+.class-page{max-width:900px;padding:36px 0 70px}.class-drugs{display:grid;grid-template-columns:repeat(2,1fr);gap:13px;margin-top:18px}
+.class-drug{display:block;text-decoration:none;border:1px solid var(--line);border-radius:13px;padding:18px;background:#fff}.class-drug h3{margin:0 0 6px;font-size:19px}.class-drug p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
+.class-section{margin-top:42px;padding-top:22px;border-top:1px solid var(--line)}
+
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
+@media(max-width:640px){.class-grid,.class-drugs{grid-template-columns:1fr}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
 
 function shell(title,body){
@@ -524,6 +543,35 @@ async function buildFromNotion(){
   <input id="filter" class="filter-input" type="search" placeholder="トピックを入力">
   <div class="directory-grid">${approvedTopics.map(t=>`<a class="directory-card" data-filter="${esc(textValue(prop(t,"トピック名"))+" "+textValue(prop(t,"カテゴリ")))}" href="/topics/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"トピック")}</small><h2>${esc(textValue(prop(t,"トピック名")))}</h2><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`).join("")||"<p>現在、公開中のトピックはない。</p>"}</div>${filterScript}
  `));
+
+
+ const classMap=new Map();
+ for(const d of approvedDrugs){
+   for(const name of drugClassNames(d)){
+     if(!classMap.has(name))classMap.set(name,[]);
+     classMap.get(name).push(d);
+   }
+ }
+ const drugClasses=[...classMap.entries()].sort((a,b)=>a[0].localeCompare(b[0],"ja"));
+
+ await fs.writeFile(path.join(OUT,"classes","index.html"),shell("薬効群から探す",`
+  <section class="class-index"><div class="kicker">DRUG CLASS</div><h1>薬効群から探す</h1>
+  <p class="lead">薬の名前だけでなく、薬のはたらきやグループから関連する薬を探せます。</p>
+  <div class="class-grid">${drugClasses.map(([name,drugs])=>`<a class="class-card" href="/classes/${esc(slugifyClass(name))}/"><small>薬効群</small><h2>${esc(name)}</h2><p>${drugs.length}件の薬を掲載</p></a>`).join("")||"<p>現在、薬効群の情報はありません。</p>"}</div></section>
+ `));
+
+ for(const [className,classDrugs] of drugClasses){
+   const classSlug=slugifyClass(className);
+   const dir=path.join(OUT,"classes",classSlug);await fs.mkdir(dir,{recursive:true});
+   await fs.writeFile(path.join(dir,"index.html"),shell(className,`
+    <article class="class-page"><div class="kicker">DRUG CLASS</div><h1>${esc(className)}</h1>
+    <p class="lead">この薬効群に分類されている薬をまとめています。個々の薬の使い方や注意点は、それぞれの薬のページで確認できます。</p>
+    <section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">この薬効群の薬</h2></div>
+    <div class="class-drugs">${classDrugs.map(d=>`<a class="class-drug" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><h3>${esc(textValue(prop(d,"薬剤名")))}</h3><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")}</div></section>
+    <section class="class-section"><a class="more-link" href="/classes/">← 薬効群一覧へ戻る</a></section>
+    </article>
+   `));
+ }
 
  for(const d of approvedDrugs){
   const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言")),reviewDate=textValue(prop(d,"最終レビュー"));
