@@ -119,6 +119,13 @@ function isQuestionPublishReady(q){
   const audiences=questionAudiences(q);
   return ok && audiences.some(x=>x==="一般向け"||PROFESSIONAL_AUDIENCES.has(x));
 }
+function troubleDisplayScope(t){
+  return textValue(prop(t,"表示範囲"));
+}
+function isGeneralTrouble(t){
+  return troubleDisplayScope(t)==="一般原則";
+}
+
 function questionPdfUrl(q){
   for(const name of ["PDF資料","PDF URL"]){
     const p=prop(q,name);
@@ -444,6 +451,7 @@ async function buildFromNotion(){
  const approvedDrugs=[];
  for(const d of drugRows) if(await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
  const approvedTopics=topicRows, approvedTroubles=troubleRows;
+ const generalTroubles=approvedTroubles.filter(isGeneralTrouble);
 
  const drugMap=new Map(approvedDrugs.map(x=>[x.id,x]));
  const topicMap=new Map(approvedTopics.map(x=>[x.id,x]));
@@ -489,8 +497,8 @@ async function buildFromNotion(){
  </nav>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div>
   <div class="preview-list">${approvedDrugs.slice(0,6).map(d=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><strong>${esc(textValue(prop(d,"薬剤名")))}</strong></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div><a class="more-link" href="/drugs/">薬をすべて見る →</a></section>
- <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">よくある困りごと</h2></div>
-  <div class="preview-list">${approvedTroubles.slice(0,6).map(t=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(t,"困りごと")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><strong>${esc(textValue(prop(t,"困りごと")))}</strong></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div><a class="more-link" href="/troubles/">困りごとをすべて見る →</a></section>
+ <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬で困ったときは</h2><p class="lead" style="font-size:15px;margin-top:-8px">多くの薬に共通する、基本的な考え方をまとめています。</p></div>
+  <div class="preview-list">${generalTroubles.slice(0,6).map(t=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(t,"困りごと")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><strong>${esc(textValue(prop(t,"困りごと")))}</strong></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div><a class="more-link" href="/troubles/">困りごとをすべて見る →</a></section>
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">最近のQ&amp;A</h2></div>
   <div class="preview-list">${generalQuestions.slice(0,3).map(q=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(q,"質問")))}" href="/qa/${esc(questionSlug(q))}/"><small>Q&amp;A</small><strong>Q. ${esc(textValue(prop(q,"質問")))}</strong></a>`).join("")||"<p>現在、公開中のQ&Aはない。</p>"}</div><a class="more-link" href="/qa/">Q&amp;Aをすべて見る →</a></section>
  <script>(()=>{const i=document.getElementById("homeSearch");if(i)i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll(".searchable").forEach(el=>{el.style.display=!q||(el.dataset.search||"").toLowerCase().includes(q)?"":"none";});});})();</script>
@@ -504,7 +512,7 @@ async function buildFromNotion(){
   <div class="directory-grid">${approvedDrugs.map(d=>`<a class="directory-card" data-filter="${esc(textValue(prop(d,"薬剤名")))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><small>薬の情報</small><h2>${esc(textValue(prop(d,"薬剤名")))}</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div>${filterScript}
  `));
  await fs.writeFile(path.join(OUT,"troubles","index.html"),shell("困りごとから探す",`
-  <section class="directory-head"><div class="kicker">TROUBLE DIRECTORY</div><h1>困りごとから探す</h1><p class="lead">症状や生活の場面から関連情報を探せる。</p></section>
+  <section class="directory-head"><div class="kicker">TROUBLE DIRECTORY</div><h1>困りごとから探す</h1><p class="lead">症状や生活の場面から関連情報を探せる。一般的な原則に加えて、薬効群・薬剤ごとの情報も掲載しています。</p></section>
   <input id="filter" class="filter-input" type="search" placeholder="困りごとを入力">
   <div class="directory-grid">${approvedTroubles.map(t=>`<a class="directory-card" data-filter="${esc(textValue(prop(t,"困りごと"))+" "+textValue(prop(t,"カテゴリ")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><h2>${esc(textValue(prop(t,"困りごと")))}</h2><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div>${filterScript}
  `));
