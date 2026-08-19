@@ -92,8 +92,23 @@ function relationIds(p){return (p?.relation||[]).map(x=>x.id);}
 function checkboxValue(p){return !!p?.checkbox;}
 
 
-const GENERAL_QUESTIONERS=new Set(["患者","家族"]);
-const PROFESSIONAL_QUESTIONERS=new Set(["薬剤師","医師","看護師","歯科","リハ職","管理栄養士","介護職"]);
+const GENERAL_QUESTIONERS=new Set(["患者","家族","一般向け"]);
+const PROFESSIONAL_AUDIENCES=new Set(["薬剤師向け","医療者向け","介護職向け"]);
+function multiSelectValues(p){
+  if(!p)return [];
+  if(p.type==="multi_select")return (p.multi_select||[]).map(x=>x.name).filter(Boolean);
+  const one=textValue(p);return one?[one]:[];
+}
+function questionAudiences(q){
+  const modern=multiSelectValues(prop(q,"対象区分"));
+  if(modern.length)return modern;
+  const legacy=textValue(prop(q,"質問者区分"));
+  if(GENERAL_QUESTIONERS.has(legacy))return ["一般向け"];
+  if(legacy==="薬剤師")return ["薬剤師向け"];
+  if(["医師","看護師","歯科","リハ職","管理栄養士"].includes(legacy))return ["医療者向け"];
+  if(legacy==="介護職")return ["介護職向け"];
+  return [];
+}
 
 function isQuestionPublishReady(q){
   const ok=checkboxValue(prop(q,"公開候補"))
@@ -101,8 +116,20 @@ function isQuestionPublishReady(q){
     && checkboxValue(prop(q,"根拠確認"))
     && !!textValue(prop(q,"質問"))
     && !!textValue(prop(q,"回答案"));
-  const who=textValue(prop(q,"質問者区分"));
-  return ok && (GENERAL_QUESTIONERS.has(who)||PROFESSIONAL_QUESTIONERS.has(who));
+  const audiences=questionAudiences(q);
+  return ok && audiences.some(x=>x==="一般向け"||PROFESSIONAL_AUDIENCES.has(x));
+}
+function questionPdfUrl(q){
+  for(const name of ["PDF資料","PDF URL"]){
+    const p=prop(q,name);
+    if(!p)continue;
+    if(p.type==="url"&&p.url)return p.url;
+    if(p.type==="files"&&p.files?.length){
+      const f=p.files[0];
+      return f.external?.url||f.file?.url||"";
+    }
+  }
+  return "";
 }
 function questionSlug(q){
   const id=textValue(prop(q,"Question ID")).trim();
@@ -112,9 +139,9 @@ function qaCard(q,base){
   const question=textValue(prop(q,"質問"));
   const answer=textValue(prop(q,"回答案"));
   const category=textValue(prop(q,"質問カテゴリ"))||"その他";
-  const who=textValue(prop(q,"質問者区分"));
-  return `<a class="qa-card" href="${base}${esc(questionSlug(q))}/">
-    <div class="qa-meta"><span>${esc(category)}</span><span>${esc(who)}</span></div>
+  const audiences=questionAudiences(q);
+  return `<a class="qa-card" data-audiences="${esc(audiences.join(" "))}" href="${base}${esc(questionSlug(q))}/">
+    <div class="qa-meta"><span>${esc(category)}</span>${audiences.map(x=>`<span>${esc(x)}</span>`).join("")}</div>
     <div class="qa-q"><span class="qa-letter">Q</span><h3>${esc(question)}</h3></div>
     <p>${esc(answer.length>100?answer.slice(0,100)+"…":answer)}</p>
     <span class="qa-more">回答を見る →</span>
@@ -303,7 +330,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 
 .qa-hero{max-width:820px;padding:30px 0 18px}.qa-hero h1{font-size:clamp(38px,5vw,58px)}
 .audience-switch{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
-.audience-tab{padding:9px 14px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-weight:700;font-size:14px}
+.audience-tab{padding:9px 14px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-weight:700;font-size:14px;background:#fff;color:inherit;font-family:inherit;cursor:pointer}.profession-filter{margin-top:12px}
 .audience-tab.active{background:var(--accent-soft);border-color:var(--accent);color:#a84334}
 .qa-list{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:18px}
 .qa-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:20px;background:#fff}
@@ -316,7 +343,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .qa-detail{max-width:860px;margin:0 auto}.qa-question-box{display:flex;gap:15px;align-items:flex-start;padding:22px 0;border-bottom:1px solid var(--line)}
 .qa-question-box h1{font-size:clamp(30px,4.5vw,48px);margin:0;line-height:1.35}
 .qa-answer-box{display:flex;gap:15px;align-items:flex-start;background:var(--accent-pale);border:1px solid #f5d4cd;border-radius:14px;padding:24px;margin-top:24px}
-.qa-answer-box p{font-size:18px;line-height:1.85;margin:0}.related-row{display:flex;gap:9px;flex-wrap:wrap}.related-link{border:1px solid var(--line);border-radius:999px;padding:7px 12px;text-decoration:none;font-size:13px;font-weight:700}
+.qa-answer-box p{font-size:18px;line-height:1.85;margin:0}.related-row{display:flex;gap:9px;flex-wrap:wrap}.qa-pdf{margin-top:26px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}.qa-pdf a{font-weight:800;color:var(--accent);text-decoration:none}.related-link{border:1px solid var(--line);border-radius:999px;padding:7px 12px;text-decoration:none;font-size:13px;font-weight:700}
 
 .qa-body{margin-top:28px;font-size:16px;line-height:1.9}.qa-body h2{font-size:24px;margin:34px 0 12px}.qa-body h3{font-size:19px;margin:26px 0 10px}.qa-body p{margin:0 0 16px}.qa-body ul,.qa-body ol{padding-left:1.5em;margin:0 0 18px}.qa-body li{margin:5px 0}.qa-body blockquote{margin:20px 0;padding:14px 18px;border-left:4px solid var(--accent);background:var(--accent-pale)}.qa-callout{margin:20px 0;padding:16px 18px;border:1px solid #f5d4cd;border-radius:12px;background:var(--accent-pale)}.qa-body hr{border:0;border-top:1px solid var(--line);margin:28px 0}.qa-body details{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0}.qa-body summary{font-weight:800;cursor:pointer}
 
@@ -394,8 +421,8 @@ async function buildFromNotion(){
  const troubleRows=allTroubles.filter(t=>isPublishReady(t,`困りごと:${textValue(prop(t,"困りごと"))||t.id}`));
 
  const approvedQuestions=allQuestions.filter(isQuestionPublishReady);
- const generalQuestions=approvedQuestions.filter(q=>GENERAL_QUESTIONERS.has(textValue(prop(q,"質問者区分"))));
- const professionalQuestions=approvedQuestions.filter(q=>PROFESSIONAL_QUESTIONERS.has(textValue(prop(q,"質問者区分"))));
+ const generalQuestions=approvedQuestions.filter(q=>questionAudiences(q).includes("一般向け"));
+ const professionalQuestions=approvedQuestions.filter(q=>questionAudiences(q).some(x=>PROFESSIONAL_AUDIENCES.has(x)));
  const approvedDrugs=[];
  for(const d of drugRows) if(await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
  const approvedTopics=topicRows, approvedTroubles=troubleRows;
@@ -521,39 +548,43 @@ async function buildFromNotion(){
 
  await fs.writeFile(path.join(OUT,"professionals","qa","index.html"),shell("医療・介護職向け Q&A",`
   <section class="qa-hero"><div class="kicker">Q&A｜医療・介護職の方へ</div><h1>現場の疑問を、<br><span class="accent">根拠とともに確認する。</span></h1>
-  <p class="lead">薬剤師・医師・看護師・歯科・リハ職・管理栄養士・介護職からの質問をまとめている。</p>
-  <div class="audience-switch"><a class="audience-tab" href="/qa/">一般の方・ご家族</a><a class="audience-tab active" href="/professionals/qa/">医療・介護職の方</a></div></section>
+  <p class="lead">必要な情報量に合わせて、薬剤師向け・医療者向け・介護職向けに切り替えて確認できる。</p>
+  <div class="audience-switch"><a class="audience-tab" href="/qa/">一般の方・ご家族</a><a class="audience-tab active" href="/professionals/qa/">医療・介護職の方</a></div>
+  <div class="audience-switch profession-filter" role="group" aria-label="職種別表示"><button class="audience-tab active" data-filter-audience="all">すべて</button><button class="audience-tab" data-filter-audience="薬剤師向け">薬剤師向け</button><button class="audience-tab" data-filter-audience="医療者向け">医療者向け</button><button class="audience-tab" data-filter-audience="介護職向け">介護職向け</button></div></section>
   <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">専門職Q&A</h2></div>
-  <div class="qa-list">${professionalQuestions.map(q=>qaCard(q,"/professionals/qa/")).join("")||"<p>現在、公開中のQ&Aはない。</p>"}</div></section>`));
+  <div class="qa-list">${professionalQuestions.map(q=>qaCard(q,"/professionals/qa/")).join("")||"<p>現在、公開中のQ&Aはない。</p>"}</div></section>
+  <script>(()=>{const buttons=[...document.querySelectorAll("[data-filter-audience]")],cards=[...document.querySelectorAll(".qa-card[data-audiences]")];buttons.forEach(b=>b.addEventListener("click",()=>{buttons.forEach(x=>x.classList.remove("active"));b.classList.add("active");const f=b.dataset.filterAudience;cards.forEach(c=>{c.style.display=f==="all"||(c.dataset.audiences||"").includes(f)?"":"none";});}));})();</script>`));
 
  for(const q of generalQuestions){
   const slug=questionSlug(q),question=textValue(prop(q,"質問")),answer=textValue(prop(q,"回答案"));
-  const category=textValue(prop(q,"質問カテゴリ")),who=textValue(prop(q,"質問者区分"));
+  const category=textValue(prop(q,"質問カテゴリ")),audiences=questionAudiences(q);
   const blocks=await fetchAllBlocks(notion,q.id);
   const bodyHtml=renderQuestionBlocks(blocks);
   const dir=path.join(OUT,"qa",slug);await fs.mkdir(dir,{recursive:true});
   const drugs=relationIds(prop(q,"関連薬剤")).map(id=>drugMap.get(id)).filter(Boolean).map(d=>`<a class="related-link" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`).join("");
   const topics=relationIds(prop(q,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="related-link" href="/topics/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"トピック名")))}</a>`).join("");
-  await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span><span>${esc(who)}</span></div>
+  await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span>${audiences.map(x=>`<span>${esc(x)}</span>`).join("")}</div>
   <div class="qa-question-box"><span class="qa-letter">Q</span><h1>${esc(question)}</h1></div>
   <div class="qa-answer-box"><span class="qa-answer-letter">A</span><p>${esc(answer)}</p></div>
   ${bodyHtml?`<section class="qa-body">${bodyHtml}</section>`:""}
+  ${questionPdfUrl(q)?`<div class="qa-pdf"><strong>簡潔にまとめた資料</strong><br><a href="${esc(questionPdfUrl(q))}" target="_blank" rel="noopener noreferrer">PDFを開く →</a></div>`:""}
   ${(drugs||topics)?`<section class="section"><h2>関連する情報</h2><div class="related-row">${drugs}${topics}</div></section>`:""}
   <p class="ref section">一般的な情報を示すもの。個別の判断は処方医・薬剤師などへ確認する。</p></article>`));
  }
 
  for(const q of professionalQuestions){
   const slug=questionSlug(q),question=textValue(prop(q,"質問")),answer=textValue(prop(q,"回答案"));
-  const category=textValue(prop(q,"質問カテゴリ")),who=textValue(prop(q,"質問者区分"));
+  const category=textValue(prop(q,"質問カテゴリ")),audiences=questionAudiences(q);
   const blocks=await fetchAllBlocks(notion,q.id);
   const bodyHtml=renderQuestionBlocks(blocks);
   const dir=path.join(OUT,"professionals","qa",slug);await fs.mkdir(dir,{recursive:true});
   const drugs=relationIds(prop(q,"関連薬剤")).map(id=>drugMap.get(id)).filter(Boolean).map(d=>`<a class="related-link" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${esc(textValue(prop(d,"薬剤名")))}</a>`).join("");
   const topics=relationIds(prop(q,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="related-link" href="/topics/${esc(textValue(prop(t,"slug")))}/">${esc(textValue(prop(t,"トピック名")))}</a>`).join("");
-  await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span><span>${esc(who)}</span><span>医療・介護職向け</span></div>
+  await fs.writeFile(path.join(dir,"index.html"),shell(question,`<article class="qa-detail"><div class="qa-meta" style="margin-top:25px"><span>${esc(category||"その他")}</span>${audiences.map(x=>`<span>${esc(x)}</span>`).join("")}</div>
   <div class="qa-question-box"><span class="qa-letter">Q</span><h1>${esc(question)}</h1></div>
   <div class="qa-answer-box"><span class="qa-answer-letter">A</span><p>${esc(answer)}</p></div>
   ${bodyHtml?`<section class="qa-body">${bodyHtml}</section>`:""}
+  ${questionPdfUrl(q)?`<div class="qa-pdf"><strong>簡潔にまとめた資料</strong><br><a href="${esc(questionPdfUrl(q))}" target="_blank" rel="noopener noreferrer">PDFを開く →</a></div>`:""}
   ${(drugs||topics)?`<section class="section"><h2>関連する薬剤・トピック</h2><div class="related-row">${drugs}${topics}</div></section>`:""}</article>`));
  }
 
