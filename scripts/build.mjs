@@ -457,6 +457,7 @@ async function buildFromNotion(){
  await fs.mkdir(path.join(OUT,"professionals"),{recursive:true});
  await fs.mkdir(path.join(OUT,"qa"),{recursive:true});
  await fs.mkdir(path.join(OUT,"professionals","qa"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"classes"),{recursive:true});
 
  const [allDrugs,allTopics,allTroubles,allQuestions]=await Promise.all([
   queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles),queryAll(notion,IDS.questions)
