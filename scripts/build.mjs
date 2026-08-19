@@ -365,6 +365,13 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .directory-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:13px;padding:17px;background:#fff}
 .directory-card small{color:var(--muted)}.directory-card h2{font-size:18px;margin:7px 0}.directory-card p{font-size:13px;color:var(--muted);margin:0}
 
+
+.about-intro{margin-top:54px;padding:34px 36px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}
+.about-intro-inner{max-width:860px}.about-intro h2{font-size:28px;margin:8px 0 12px}.about-intro p{line-height:1.9;color:var(--muted)}
+.about-more{display:inline-flex;margin-top:8px;color:var(--accent);font-weight:800;text-decoration:none}
+.about-page{max-width:860px;padding:42px 0 70px}.about-page h1{font-size:clamp(38px,5vw,58px);margin:8px 0 18px}.about-page h2{font-size:24px;margin:42px 0 12px;padding-top:18px;border-top:1px solid var(--line)}.about-page p{font-size:16px;line-height:2;margin:0 0 14px}.about-note{padding:20px 22px;border-radius:14px;background:var(--soft);margin-top:20px}
+.footer-item a{color:inherit;text-decoration:none}.footer-item a:hover{color:var(--accent)}
+
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
@@ -373,11 +380,22 @@ function shell(title,body){
  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}｜くすりとくらしの情報 Link</title><style>${css}</style></head>
 <body><header><div class="wrap head"><a class="brand" href="/"><span class="logo-wrap">${iconSvg("link","brand-icon")}</span><span class="brand-copy"><strong>くすりとくらしの情報 <span style="color:var(--accent)">Link</span></strong><small>薬のこと、知りたいから探せます</small></span></a><a class="header-link" href="/about/">このサイトについて ↓</a></div></header>
 <main class="wrap">${body}</main><footer><div class="wrap footer-grid">
-<div class="footer-item"><strong>このサイトの情報について</strong><span>情報の根拠や更新について</span></div>
-<div class="footer-item"><strong>根拠資料について</strong><span>電子添文やガイドライン</span></div>
-<div class="footer-item"><strong><a href="/professionals/qa/" style="text-decoration:none">医療・介護職の方へ</a></strong><span>専門職向けQ&amp;Aを見る</span></div>
-<div class="footer-item"><strong>迷ったときは</strong><span>処方医・薬剤師などへ確認する</span></div>
+<div class="footer-item"><strong><a href="/about/">このサイトについて</a></strong><span>運営目的と情報のまとめ方</span></div>
+<div class="footer-item"><strong><a href="/evidence/">情報源・編集方針</a></strong><span>根拠資料や更新について</span></div>
+<div class="footer-item"><strong><a href="/professionals/qa/">医療・介護職の方へ</a></strong><span>専門職向けQ&amp;Aを見る</span></div>
+<div class="footer-item"><strong><a href="/about/#usage">ご利用にあたって</a></strong><span>医療情報としての注意事項</span></div>
 </div></footer></body></html>`;
+}
+
+
+function homeAboutSection(){
+ return `<section class="about-intro"><div class="about-intro-inner">
+  <div class="kicker">ABOUT THIS SITE</div>
+  <h2>このサイトについて</h2>
+  <p>「くすりとくらしの情報 Link」は、保険薬局で勤務する薬剤師が、医薬品や薬物療法に関する情報を、できるだけわかりやすく伝えるためにまとめている情報サイトです。</p>
+  <p>電子添文、公的機関の情報、診療ガイドライン、学術論文などを確認し、情報の根拠を大切にしています。</p>
+  <a class="about-more" href="/about/">このサイトについて詳しく見る →</a>
+ </div></section>`;
 }
 
 async function buildPreview(){
@@ -396,7 +414,7 @@ async function buildPreview(){
  <section class="section section-divider two-col">
   <div id="drugs"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">薬から探す</h2></div><div class="grid"><div class="card"><span>骨粗しょう症の薬</span><h3>アレンドロン酸</h3><p>骨を壊す働きを抑え、骨折を防ぐために使われる薬。</p></div></div></div>
   <div id="troubles"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">こんなことで困っていませんか？</h2></div><div class="chips"><span class="chip"><span class="chip-icon">${iconSvg("clock","mini-icon")}</span><span>薬を飲み忘れた</span></span><span class="chip"><span class="chip-icon">${iconSvg("chest","mini-icon")}</span><span>胸やけがする</span></span><span class="chip"><span class="chip-icon">${iconSvg("tooth","mini-icon")}</span><span>歯医者に行く</span></span></div></div>
- </section>`));
+ </section>${homeAboutSection()}`));
 }
 
 async function buildFromNotion(){
@@ -476,7 +494,7 @@ async function buildFromNotion(){
  <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">最近のQ&amp;A</h2></div>
   <div class="preview-list">${generalQuestions.slice(0,3).map(q=>`<a class="preview-item searchable" data-search="${esc(textValue(prop(q,"質問")))}" href="/qa/${esc(questionSlug(q))}/"><small>Q&amp;A</small><strong>Q. ${esc(textValue(prop(q,"質問")))}</strong></a>`).join("")||"<p>現在、公開中のQ&Aはない。</p>"}</div><a class="more-link" href="/qa/">Q&amp;Aをすべて見る →</a></section>
  <script>(()=>{const i=document.getElementById("homeSearch");if(i)i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll(".searchable").forEach(el=>{el.style.display=!q||(el.dataset.search||"").toLowerCase().includes(q)?"":"none";});});})();</script>
- `));
+ ${homeAboutSection()}`));
 
  const filterScript=`<script>(()=>{const i=document.getElementById("filter");if(i)i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll("[data-filter]").forEach(el=>{el.style.display=!q||(el.dataset.filter||"").toLowerCase().includes(q)?"":"none";});});})();</script>`;
 
@@ -588,8 +606,30 @@ async function buildFromNotion(){
   ${(drugs||topics)?`<section class="section"><h2>関連する薬剤・トピック</h2><div class="related-row">${drugs}${topics}</div></section>`:""}</article>`));
  }
 
- await fs.writeFile(path.join(OUT,"about","index.html"),shell("このサイトについて",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">このサイトについて</div><h1>情報の確認方法</h1><p class="lead">患者さんが行動に移しやすい表現を優先しつつ、根拠資料を確認して掲載する。</p></div></section>`));
- await fs.writeFile(path.join(OUT,"evidence","index.html"),shell("根拠資料について",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">Evidence</div><h1>根拠資料について</h1><p class="lead">先発医薬品の電子添文を基本資料とする。</p></div></section>`));
+ await fs.writeFile(path.join(OUT,"about","index.html"),shell("このサイトについて",`<article class="about-page">
+  <div class="kicker">ABOUT THIS SITE</div><h1>このサイトについて</h1>
+  <p>「くすりとくらしの情報 Link」は、保険薬局で勤務する薬剤師が、医薬品や薬物療法に関する情報を、できるだけわかりやすく伝えるためにまとめている情報サイトです。</p>
+  <p>患者さんやご家族が「この薬は何の薬？」「どうやって飲めばいい？」「こんなときはどうしたらいい？」と思ったときに、必要な情報へたどり着けることを目指しています。</p>
+  <p>また、薬剤師をはじめとする医療・介護に携わる方が、日々の業務で生じた疑問を確認できる情報も掲載しています。</p>
+  <h2>情報をまとめるときに大切にしていること</h2>
+  <p>掲載内容を作成する際には、電子添文、インタビューフォーム、公的機関の情報、診療ガイドライン、学術論文などを確認し、可能な限り情報の根拠を示すようにしています。</p>
+  <p>医薬品に関する情報は更新されることがあります。そのため、掲載後も必要に応じて内容を見直します。</p>
+  <p><a class="about-more" href="/evidence/">情報源・編集方針を見る →</a></p>
+  <h2 id="usage">ご利用にあたって</h2>
+  <div class="about-note"><p>このサイトは、一般的な医薬品・薬物療法に関する情報を提供することを目的としています。</p>
+  <p>個々の患者さんの診断や治療方針を決定したり、薬の開始・中止・変更を指示したりするものではありません。</p>
+  <p>薬の使用について疑問や心配がある場合は、医師・薬剤師などの医療専門職にご相談ください。</p></div>
+ </article>`));
+ await fs.writeFile(path.join(OUT,"evidence","index.html"),shell("情報源・編集方針",`<article class="about-page">
+  <div class="kicker">EDITORIAL POLICY</div><h1>情報源・編集方針</h1>
+  <p>医薬品情報を掲載する際は、情報の出所と更新性を確認することを大切にしています。</p>
+  <h2>主に確認する情報源</h2>
+  <p>電子添文、インタビューフォーム、厚生労働省やPMDAなど公的機関が公表する情報、診療ガイドライン、学術論文などを確認します。内容に応じて複数の資料を照合します。</p>
+  <h2>わかりやすさと正確さ</h2>
+  <p>患者さん・ご家族向けの情報では、専門用語をできるだけ避けながら、医薬品情報として重要な条件や注意点が失われない表現を心がけています。専門職向けQ&amp;Aでは、実務で確認しやすいよう根拠や判断のポイントをより詳しく示します。</p>
+  <h2>更新について</h2>
+  <p>医薬品情報や診療上の推奨は更新されることがあります。新しい情報が確認された場合や、掲載内容の見直しが必要と判断した場合には、内容を更新します。</p>
+ </article>`));
  await fs.writeFile(path.join(OUT,"professionals","index.html"),shell("医療・介護職の方へ",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">For Professionals</div><h1>医療・介護職の方へ</h1><p class="lead">患者向け情報と同じ根拠から、専門職向け要点を展開する。</p></div></section>`));
  console.log(`Built drugs=${approvedDrugs.length}, topics=${approvedTopics.length}, troubles=${approvedTroubles.length}`);
 }
