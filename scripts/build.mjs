@@ -410,6 +410,12 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .drug-entry-action .action-copy strong{display:block;font-size:16px}
 .drug-entry-action .action-arrow{color:var(--accent);font-size:22px;line-height:1}
 
+
+.find-switch{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 22px}
+.find-switch a{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-weight:800;background:#fff}
+.find-switch a.active{background:var(--accent-pale);border-color:#efb8ab;color:var(--accent)}
+.find-switch-note{font-size:13px;color:var(--muted);margin-top:-10px}
+
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.drug-entry-actions{grid-template-columns:1fr}.class-grid,.class-drugs{grid-template-columns:1fr}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
@@ -543,7 +549,10 @@ async function buildFromNotion(){
  const filterScript=`<script>(()=>{const i=document.getElementById("filter");if(i)i.addEventListener("input",()=>{const q=i.value.trim().toLowerCase();document.querySelectorAll("[data-filter]").forEach(el=>{el.style.display=!q||(el.dataset.filter||"").toLowerCase().includes(q)?"":"none";});});})();</script>`;
 
  await fs.writeFile(path.join(OUT,"drugs","index.html"),shell("薬から探す",`
-  <section class="directory-head"><div class="kicker">DRUG DIRECTORY</div><h1>薬から探す</h1><p class="lead">薬剤名から情報を探せる。</p></section>
+  <section class="directory-head"><div class="kicker">DRUG DIRECTORY</div><h1>薬から探す</h1><p class="lead">薬剤名または薬効群から探せます。</p>
+  <div class="find-switch"><a class="active" href="/drugs/">薬剤名から探す</a><a href="/classes/">薬効群から探す</a></div>
+  <p class="find-switch-note">薬の名前が分かっている場合は薬剤名から、薬のグループで探したい場合は薬効群から確認できます。</p>
+  </section>
   <input id="filter" class="filter-input" type="search" placeholder="薬剤名を入力">
   <div class="directory-grid">${approvedDrugs.map(d=>`<a class="directory-card" data-filter="${esc(textValue(prop(d,"薬剤名"))+" "+drugClassValue(d))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${drugClassValue(d)?`<small>${esc(drugClassValue(d))}</small>`:""}<h2>${esc(textValue(prop(d,"薬剤名")))}</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div>${filterScript}
  `));
@@ -571,6 +580,8 @@ async function buildFromNotion(){
  await fs.writeFile(path.join(OUT,"classes","index.html"),shell("薬効群から探す",`
   <section class="class-index"><div class="kicker">DRUG CLASS</div><h1>薬効群から探す</h1>
   <p class="lead">薬の名前が分からないときも、薬のグループから関連する薬を探せます。</p>
+  <div class="find-switch"><a href="/drugs/">薬剤名から探す</a><a class="active" href="/classes/">薬効群から探す</a></div>
+  <p class="find-switch-note">薬剤名と薬効群はいつでも切り替えて探せます。</p>
   <div class="class-grid">${drugClasses.map(([name,drugs])=>`<a class="class-card" href="/classes/${esc(slugifyClass(name))}/"><small>薬効群</small><h2>${esc(name)}</h2><p>${drugs.length}件の薬を掲載</p></a>`).join("")||"<p>現在、薬効群の情報はありません。</p>"}</div></section>
  `));
 
@@ -580,6 +591,7 @@ async function buildFromNotion(){
    await fs.writeFile(path.join(dir,"index.html"),shell(className,`
     <article class="class-page"><div class="kicker">DRUG CLASS</div><h1>${esc(className)}</h1>
     <p class="lead">この薬効群に分類されている薬をまとめています。個々の薬の使い方や注意点は、それぞれの薬のページで確認できます。</p>
+    <div class="find-switch"><a href="/drugs/">薬剤名から探す</a><a class="active" href="/classes/">薬効群から探す</a></div>
     <section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">この薬効群の薬</h2></div>
     <div class="class-drugs">${classDrugs.map(d=>`<a class="class-drug" href="/drugs/${esc(textValue(prop(d,"slug")))}/"><h3>${esc(textValue(prop(d,"薬剤名")))}</h3><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")}</div></section>
     <section class="class-section"><a class="more-link" href="/classes/">← 薬効群一覧へ戻る</a></section>
