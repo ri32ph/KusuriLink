@@ -786,7 +786,8 @@ async function buildFromNotion(){
   <div class="clinical-grid">${sortedAreas.map(area=>{
    const name=textValue(prop(area,"名前"));
    const count=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(name)).length;
-   return `<a class="clinical-card" href="/professionals/therapeutic-areas/${esc(slugifyClass(name))}/"><small>治療領域</small><h2>${esc(name)}</h2><p>${count}件の薬剤クラス</p></a>`;
+   const domains=multiValue(prop(area,"領域")).join(" / ");
+   return `<a class="clinical-card" href="/professionals/therapeutic-areas/${esc(slugifyClass(name))}/"><small>${esc(domains||"治療領域")}</small><h2>${esc(name)}</h2><p>${count}件の薬剤クラス</p></a>`;
   }).join("")||"<p>臨床薬学データを準備中です。</p>"}</div></section>`));
 
  for(const area of sortedAreas){
