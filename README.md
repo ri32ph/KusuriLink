@@ -13,7 +13,13 @@
 - `NOTION_THERAPEUTIC_AREAS_DATA_SOURCE_ID`
 - `NOTION_CLINICAL_DRUG_CLASSES_DATA_SOURCE_ID`
 
-未設定時は、元の臨床薬学データベースのIDを使用する。
+未設定時は、「専門職向け臨床薬学データ（Web連携用）」のIDを使用する。
+
+治療領域・薬剤クラスは、次の3条件をすべて満たす項目だけを公開する。
+
+- `Web公開` がON
+- `レビュー状態` が「完了」
+- `最終レビュー` が入力済み
 
 ## v0.9.3
 

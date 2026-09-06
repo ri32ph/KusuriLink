@@ -10,8 +10,8 @@ const IDS = {
   troubles: process.env.NOTION_TROUBLES_DATA_SOURCE_ID,
   evidence: process.env.NOTION_EVIDENCE_DATA_SOURCE_ID,
   questions: process.env.NOTION_QUESTIONS_DATA_SOURCE_ID || "1239feec-4626-4503-a819-250feb112c79",
-  therapeuticAreas: process.env.NOTION_THERAPEUTIC_AREAS_DATA_SOURCE_ID || "3d2a2d0d-cc9d-8036-b034-000b4eafe4a6",
-  clinicalDrugClasses: process.env.NOTION_CLINICAL_DRUG_CLASSES_DATA_SOURCE_ID || "3d2a2d0d-cc9d-80b8-8435-000b0f75702d",
+  therapeuticAreas: process.env.NOTION_THERAPEUTIC_AREAS_DATA_SOURCE_ID || "c78a2d0d-cc9d-831f-b742-07ea870d2264",
+  clinicalDrugClasses: process.env.NOTION_CLINICAL_DRUG_CLASSES_DATA_SOURCE_ID || "e39a2d0d-cc9d-82e5-ad0c-87c7d420b3e3",
 };
 
 const REQUIRED_ENV = {
@@ -105,7 +105,6 @@ function slugifyClass(name){
 
 function clinicalAreaNames(page){
   const p=prop(page,"💊治療領域（適応・目的）");
-  if(p?.type==="relation") return relationIds(p);
   return multiSelectValues(p);
 }
 function clinicalField(page,name){
@@ -277,6 +276,15 @@ function isPublishReady(page,label){
   const slug=textValue(prop(page,"slug"));
   const ok=web && status==="完了" && !!review && !!slug;
   console.log(`[PUBLICATION ROW] ${label}: Web公開=${web?"ON":"OFF"} / レビュー状態=${status||"未設定"} / 最終レビュー=${review||"未設定"} / slug=${slug||"未設定"} / ${ok?"PASS":"SKIP"}`);
+  return ok;
+}
+
+function isClinicalPublishReady(page,label){
+  const web=checkboxValue(prop(page,"Web公開"));
+  const status=textValue(prop(page,"レビュー状態"));
+  const review=textValue(prop(page,"最終レビュー"));
+  const ok=web && status==="完了" && !!review;
+  console.log(`[CLINICAL PUBLICATION] ${label}: Web公開=${web?"ON":"OFF"} / レビュー状態=${status||"未設定"} / 最終レビュー=${review||"未設定"} / ${ok?"PASS":"SKIP"}`);
   return ok;
 }
 
@@ -753,9 +761,10 @@ async function buildFromNotion(){
   <h2>更新について</h2>
   <p>医薬品情報や診療上の推奨は更新されることがあります。新しい情報が確認された場合や、掲載内容の見直しが必要と判断した場合には、内容を更新します。</p>
  </article>`));
- const areaNameById=new Map(therapeuticAreas.map(a=>[a.id,textValue(prop(a,"名前"))]));
- const sortedAreas=[...therapeuticAreas].sort((a,b)=>textValue(prop(a,"名前")).localeCompare(textValue(prop(b,"名前")),"ja"));
- const sortedClinicalClasses=[...clinicalDrugClasses].sort((a,b)=>{
+ const approvedAreas=therapeuticAreas.filter(a=>isClinicalPublishReady(a,`治療領域:${textValue(prop(a,"名前"))||a.id}`));
+ const approvedClinicalClasses=clinicalDrugClasses.filter(c=>isClinicalPublishReady(c,`薬剤クラス:${textValue(prop(c,"薬効群"))||c.id}`));
+ const sortedAreas=[...approvedAreas].sort((a,b)=>textValue(prop(a,"名前")).localeCompare(textValue(prop(b,"名前")),"ja"));
+ const sortedClinicalClasses=[...approvedClinicalClasses].sort((a,b)=>{
   const orderA=prop(a,"表示順")?.number??999,orderB=prop(b,"表示順")?.number??999;
   return orderA-orderB||textValue(prop(a,"薬効群")).localeCompare(textValue(prop(b,"薬効群")),"ja");
  });
@@ -776,13 +785,13 @@ async function buildFromNotion(){
   <div class="find-switch"><a class="active" href="/professionals/therapeutic-areas/">治療領域から探す</a><a href="/professionals/drug-classes/">薬剤クラスから探す</a></div>
   <div class="clinical-grid">${sortedAreas.map(area=>{
    const name=textValue(prop(area,"名前"));
-   const count=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(area.id)).length;
+   const count=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(name)).length;
    return `<a class="clinical-card" href="/professionals/therapeutic-areas/${esc(slugifyClass(name))}/"><small>治療領域</small><h2>${esc(name)}</h2><p>${count}件の薬剤クラス</p></a>`;
   }).join("")||"<p>臨床薬学データを準備中です。</p>"}</div></section>`));
 
  for(const area of sortedAreas){
   const name=textValue(prop(area,"名前")),slug=slugifyClass(name);
-  const related=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(area.id));
+  const related=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(name));
   const dir=path.join(OUT,"professionals","therapeutic-areas",slug);await fs.mkdir(dir,{recursive:true});
   await fs.writeFile(path.join(dir,"index.html"),shell(name,`<article class="clinical-page"><div class="kicker">THERAPEUTIC AREA</div><h1>${esc(name)}</h1>
    <p class="lead">この治療領域で用いられる主な薬剤クラスを、患者の症候・生活・観察行動の視点から確認します。</p>
@@ -796,12 +805,12 @@ async function buildFromNotion(){
   <p class="lead">作用機序別の薬剤クラスから、生活への影響、観察項目、注意するタイミングを確認できます。</p>
   <div class="find-switch"><a href="/professionals/therapeutic-areas/">治療領域から探す</a><a class="active" href="/professionals/drug-classes/">薬剤クラスから探す</a></div>
   <input id="filter" class="filter-input" type="search" placeholder="薬剤クラス・薬剤名を入力">
-  <div class="clinical-grid">${sortedClinicalClasses.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" data-filter="${esc(n+" "+clinicalField(c,"💊主な薬名"))}" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>${esc(clinicalAreaNames(c).map(id=>areaNameById.get(id)).filter(Boolean).join(" / ")||"薬剤クラス")}</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名"))}</p></a>`}).join("")||"<p>臨床薬学データを準備中です。</p>"}</div>${filterScript}</section>`));
+  <div class="clinical-grid">${sortedClinicalClasses.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" data-filter="${esc(n+" "+clinicalField(c,"💊主な薬名"))}" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>${esc(clinicalAreaNames(c).join(" / ")||"薬剤クラス")}</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名"))}</p></a>`}).join("")||"<p>臨床薬学データを準備中です。</p>"}</div>${filterScript}</section>`));
 
  for(const c of sortedClinicalClasses){
   const name=textValue(prop(c,"薬効群"));if(!name)continue;
   const dir=path.join(OUT,"professionals","drug-classes",slugifyClass(name));await fs.mkdir(dir,{recursive:true});
-  const areas=clinicalAreaNames(c).map(id=>areaNameById.get(id)).filter(Boolean);
+  const areas=clinicalAreaNames(c).filter(a=>sortedAreas.some(x=>textValue(prop(x,"名前"))===a));
   await fs.writeFile(path.join(dir,"index.html"),shell(name,`<article class="clinical-page"><div class="kicker">DRUG CLASS</div><h1>${esc(name)}</h1>
    ${areas.length?`<p class="lead">治療領域：${areas.map(a=>`<a href="/professionals/therapeutic-areas/${esc(slugifyClass(a))}/">${esc(a)}</a>`).join(" / ")}</p>`:""}
    <dl class="clinical-data">
