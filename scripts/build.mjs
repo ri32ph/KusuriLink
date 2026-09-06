@@ -10,6 +10,8 @@ const IDS = {
   troubles: process.env.NOTION_TROUBLES_DATA_SOURCE_ID,
   evidence: process.env.NOTION_EVIDENCE_DATA_SOURCE_ID,
   questions: process.env.NOTION_QUESTIONS_DATA_SOURCE_ID || "1239feec-4626-4503-a819-250feb112c79",
+  therapeuticAreas: process.env.NOTION_THERAPEUTIC_AREAS_DATA_SOURCE_ID || "3d2a2d0d-cc9d-8036-b034-000b4eafe4a6",
+  clinicalDrugClasses: process.env.NOTION_CLINICAL_DRUG_CLASSES_DATA_SOURCE_ID || "3d2a2d0d-cc9d-80b8-8435-000b0f75702d",
 };
 
 const REQUIRED_ENV = {
@@ -99,6 +101,21 @@ function slugifyClass(name){
     .replace(/[\\/／]/g,"-").replace(/\s+/g,"-")
     .replace(/[?#%&+]/g,"-").replace(/-+/g,"-")
     .replace(/^-|-$/g,"") || "class";
+}
+
+function clinicalAreaNames(page){
+  const p=prop(page,"💊治療領域（適応・目的）");
+  if(p?.type==="relation") return relationIds(p);
+  return multiSelectValues(p);
+}
+function clinicalField(page,name){
+  const p=prop(page,name);
+  if(!p)return "";
+  if(p.type==="multi_select")return multiValue(p).join("、");
+  return textValue(p);
+}
+function clinicalDetailRow(label,value){
+  return value?`<div class="clinical-row"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`:"";
 }
 
 function relationIds(p){return (p?.relation||[]).map(x=>x.id);}
@@ -415,9 +432,18 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .find-switch a{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-weight:800;background:#fff}
 .find-switch a.active{background:var(--accent-pale);border-color:#efb8ab;color:var(--accent)}
 .find-switch-note{font-size:13px;color:var(--muted);margin-top:-10px}
+.professional-entry-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px}
+.professional-entry{display:block;text-decoration:none;border:1px solid var(--line);border-radius:15px;padding:22px;background:#fff;box-shadow:var(--shadow)}
+.professional-entry small{color:var(--accent);font-weight:800}.professional-entry h2{font-size:21px;margin:8px 0}.professional-entry p{font-size:14px;color:var(--muted);margin:0}
+.clinical-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:24px}
+.clinical-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:19px;background:#fff}
+.clinical-card:hover{border-color:#efad9f}.clinical-card small{color:var(--accent);font-weight:800}.clinical-card h2{font-size:18px;margin:7px 0 4px}.clinical-card p{font-size:13px;color:var(--muted);margin:0}
+.clinical-page{max-width:960px;padding:36px 0 70px}.clinical-page h1{font-size:clamp(36px,5vw,56px);margin:8px 0 12px}
+.clinical-data{border-top:1px solid var(--line);margin-top:28px}.clinical-row{display:grid;grid-template-columns:210px 1fr;gap:22px;padding:16px 0;border-bottom:1px solid var(--line)}
+.clinical-row dt{font-weight:800}.clinical-row dd{margin:0;color:#45484c;white-space:pre-line}.clinical-back{margin-top:34px}
 
-@media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.drug-entry-actions{grid-template-columns:1fr}.class-grid,.class-drugs{grid-template-columns:1fr}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
+@media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}.professional-entry-grid,.clinical-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.drug-entry-actions{grid-template-columns:1fr}.class-grid,.class-drugs,.professional-entry-grid,.clinical-grid{grid-template-columns:1fr}.clinical-row{grid-template-columns:1fr;gap:4px}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
 
 function shell(title,body){
@@ -426,7 +452,7 @@ function shell(title,body){
 <main class="wrap">${body}</main><footer><div class="wrap footer-grid">
 <div class="footer-item"><strong><a href="/about/">このサイトについて</a></strong><span>運営目的と情報のまとめ方</span></div>
 <div class="footer-item"><strong><a href="/evidence/">情報源・編集方針</a></strong><span>根拠資料や更新について</span></div>
-<div class="footer-item"><strong><a href="/professionals/qa/">医療・介護職の方へ</a></strong><span>専門職向けQ&amp;Aを見る</span></div>
+<div class="footer-item"><strong><a href="/professionals/">医療・介護職の方へ</a></strong><span>薬効群・観察項目・Q&amp;A</span></div>
 <div class="footer-item"><strong><a href="/about/#usage">ご利用にあたって</a></strong><span>医療情報としての注意事項</span></div>
 </div></footer></body></html>`;
 }
@@ -472,12 +498,15 @@ async function buildFromNotion(){
  await fs.mkdir(path.join(OUT,"professionals"),{recursive:true});
  await fs.mkdir(path.join(OUT,"qa"),{recursive:true});
  await fs.mkdir(path.join(OUT,"professionals","qa"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"professionals","therapeutic-areas"),{recursive:true});
+ await fs.mkdir(path.join(OUT,"professionals","drug-classes"),{recursive:true});
  await fs.mkdir(path.join(OUT,"classes"),{recursive:true});
 
- const [allDrugs,allTopics,allTroubles,allQuestions]=await Promise.all([
-  queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles),queryAll(notion,IDS.questions)
+ const [allDrugs,allTopics,allTroubles,allQuestions,therapeuticAreas,clinicalDrugClasses]=await Promise.all([
+  queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles),queryAll(notion,IDS.questions),
+  queryAll(notion,IDS.therapeuticAreas),queryAll(notion,IDS.clinicalDrugClasses)
  ]);
- console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length} / 質問=${allQuestions.length}`);
+ console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length} / 質問=${allQuestions.length} / 治療領域=${therapeuticAreas.length} / 臨床薬剤クラス=${clinicalDrugClasses.length}`);
 
  const drugRows=allDrugs.filter(d=>isPublishReady(d,`薬剤:${textValue(prop(d,"薬剤名"))||d.id}`));
  const topicRows=allTopics.filter(t=>isPublishReady(t,`トピック:${textValue(prop(t,"トピック名"))||t.id}`));
@@ -715,7 +744,75 @@ async function buildFromNotion(){
   <h2>更新について</h2>
   <p>医薬品情報や診療上の推奨は更新されることがあります。新しい情報が確認された場合や、掲載内容の見直しが必要と判断した場合には、内容を更新します。</p>
  </article>`));
- await fs.writeFile(path.join(OUT,"professionals","index.html"),shell("医療・介護職の方へ",`<section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">For Professionals</div><h1>医療・介護職の方へ</h1><p class="lead">患者向け情報と同じ根拠から、専門職向け要点を展開する。</p></div></section>`));
+ const areaNameById=new Map(therapeuticAreas.map(a=>[a.id,textValue(prop(a,"名前"))]));
+ const sortedAreas=[...therapeuticAreas].sort((a,b)=>textValue(prop(a,"名前")).localeCompare(textValue(prop(b,"名前")),"ja"));
+ const sortedClinicalClasses=[...clinicalDrugClasses].sort((a,b)=>{
+  const orderA=prop(a,"表示順")?.number??999,orderB=prop(b,"表示順")?.number??999;
+  return orderA-orderB||textValue(prop(a,"薬効群")).localeCompare(textValue(prop(b,"薬効群")),"ja");
+ });
+
+ await fs.writeFile(path.join(OUT,"professionals","index.html"),shell("医療・介護職の方へ",`
+  <section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">FOR PROFESSIONALS</div><h1>医療・介護職の方へ</h1>
+  <p class="lead">薬を使っている患者に何が起こりやすいか、生活のどこに影響するか、何を観察するかを臨床で確認するための情報です。</p></div></section>
+  <div class="professional-entry-grid">
+   <a class="professional-entry" href="/professionals/therapeutic-areas/"><small>適応・目的から</small><h2>治療領域から探す</h2><p>鎮痛薬、降圧薬、糖尿病治療薬などから確認します。</p></a>
+   <a class="professional-entry" href="/professionals/drug-classes/"><small>作用機序から</small><h2>薬剤クラスから探す</h2><p>薬剤クラスごとの症候、生活への影響、観察項目を確認します。</p></a>
+   <a class="professional-entry" href="/professionals/qa/"><small>現場の疑問から</small><h2>専門職向けQ&amp;A</h2><p>薬剤師、医療職、介護職向けの質問と回答を確認します。</p></a>
+  </div>
+  <section class="notice"><strong>ご利用にあたって</strong><p>個々の患者への適用では、病態、検査値、併用薬、最新の電子添文・ガイドライン等も確認してください。</p></section>`));
+
+ await fs.writeFile(path.join(OUT,"professionals","therapeutic-areas","index.html"),shell("治療領域から探す",`
+  <section class="class-index"><div class="kicker">THERAPEUTIC AREAS</div><h1>治療領域から探す</h1>
+  <p class="lead">薬を使用する目的や治療領域から、関連する薬剤クラスと観察ポイントを確認できます。</p>
+  <div class="find-switch"><a class="active" href="/professionals/therapeutic-areas/">治療領域から探す</a><a href="/professionals/drug-classes/">薬剤クラスから探す</a></div>
+  <div class="clinical-grid">${sortedAreas.map(area=>{
+   const name=textValue(prop(area,"名前"));
+   const count=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(area.id)).length;
+   return `<a class="clinical-card" href="/professionals/therapeutic-areas/${esc(slugifyClass(name))}/"><small>治療領域</small><h2>${esc(name)}</h2><p>${count}件の薬剤クラス</p></a>`;
+  }).join("")}</div></section>`));
+
+ for(const area of sortedAreas){
+  const name=textValue(prop(area,"名前")),slug=slugifyClass(name);
+  const related=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(area.id));
+  const dir=path.join(OUT,"professionals","therapeutic-areas",slug);await fs.mkdir(dir,{recursive:true});
+  await fs.writeFile(path.join(dir,"index.html"),shell(name,`<article class="clinical-page"><div class="kicker">THERAPEUTIC AREA</div><h1>${esc(name)}</h1>
+   <p class="lead">この治療領域で用いられる主な薬剤クラスを、患者の症候・生活・観察行動の視点から確認します。</p>
+   <section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">関連する薬剤クラス</h2></div>
+   <div class="clinical-grid">${related.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>薬剤クラス</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名")||clinicalField(c,"主な用途"))}</p></a>`}).join("")||"<p>関連する薬剤クラスはまだ登録されていません。</p>"}</div></section>
+   <p class="clinical-back"><a class="more-link" href="/professionals/therapeutic-areas/">← 治療領域一覧へ戻る</a></p></article>`));
+ }
+
+ await fs.writeFile(path.join(OUT,"professionals","drug-classes","index.html"),shell("薬剤クラスから探す",`
+  <section class="class-index"><div class="kicker">CLINICAL DRUG CLASSES</div><h1>薬剤クラスから探す</h1>
+  <p class="lead">作用機序別の薬剤クラスから、生活への影響、観察項目、注意するタイミングを確認できます。</p>
+  <div class="find-switch"><a href="/professionals/therapeutic-areas/">治療領域から探す</a><a class="active" href="/professionals/drug-classes/">薬剤クラスから探す</a></div>
+  <input id="filter" class="filter-input" type="search" placeholder="薬剤クラス・薬剤名を入力">
+  <div class="clinical-grid">${sortedClinicalClasses.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" data-filter="${esc(n+" "+clinicalField(c,"💊主な薬名"))}" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>${esc(clinicalAreaNames(c).map(id=>areaNameById.get(id)).filter(Boolean).join(" / ")||"薬剤クラス")}</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名"))}</p></a>`}).join("")}</div>${filterScript}</section>`));
+
+ for(const c of sortedClinicalClasses){
+  const name=textValue(prop(c,"薬効群"));if(!name)continue;
+  const dir=path.join(OUT,"professionals","drug-classes",slugifyClass(name));await fs.mkdir(dir,{recursive:true});
+  const areas=clinicalAreaNames(c).map(id=>areaNameById.get(id)).filter(Boolean);
+  await fs.writeFile(path.join(dir,"index.html"),shell(name,`<article class="clinical-page"><div class="kicker">DRUG CLASS</div><h1>${esc(name)}</h1>
+   ${areas.length?`<p class="lead">治療領域：${areas.map(a=>`<a href="/professionals/therapeutic-areas/${esc(slugifyClass(a))}/">${esc(a)}</a>`).join(" / ")}</p>`:""}
+   <dl class="clinical-data">
+    ${clinicalDetailRow("主な薬剤",clinicalField(c,"💊主な薬名"))}
+    ${clinicalDetailRow("主な用途",clinicalField(c,"主な用途"))}
+    ${clinicalDetailRow("特徴",clinicalField(c,"特徴"))}
+    ${clinicalDetailRow("よくみられる症候",clinicalField(c,"☑️ よくみられる症候"))}
+    ${clinicalDetailRow("見逃したくない兆候",clinicalField(c,"☑️ 見逃したくない兆候"))}
+    ${clinicalDetailRow("食事・嚥下",clinicalField(c,"🍽️ 食事・嚥下"))}
+    ${clinicalDetailRow("排泄",clinicalField(c,"🚽 排泄"))}
+    ${clinicalDetailRow("睡眠",clinicalField(c,"💤 睡眠"))}
+    ${clinicalDetailRow("運動・活動",clinicalField(c,"🏃‍♀️ 運動・活動"))}
+    ${clinicalDetailRow("認知機能",clinicalField(c,"🧠 認知機能"))}
+    ${clinicalDetailRow("呼吸",clinicalField(c,"呼吸"))}
+    ${clinicalDetailRow("循環・転倒",clinicalField(c,"循環・転倒"))}
+    ${clinicalDetailRow("主な観察項目",clinicalField(c,"☑️ 主な観察項目"))}
+    ${clinicalDetailRow("注意するタイミング",clinicalField(c,"☑️ 注意するタイミング"))}
+   </dl><section class="notice"><strong>臨床で使用するときの注意</strong><p>薬剤だけを原因と決めつけず、原疾患、感染、脱水、出血、臓器機能、併用薬なども含めて評価してください。</p></section>
+   <p class="clinical-back"><a class="more-link" href="/professionals/drug-classes/">← 薬剤クラス一覧へ戻る</a></p></article>`));
+ }
  console.log(`Built drugs=${approvedDrugs.length}, topics=${approvedTopics.length}, troubles=${approvedTroubles.length}`);
 }
 
