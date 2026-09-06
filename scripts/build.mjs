@@ -261,6 +261,15 @@ async function queryAll(notion,dataSourceId){
   return out;
 }
 
+async function queryOptional(notion,dataSourceId,label){
+  try{
+    return await queryAll(notion,dataSourceId);
+  }catch(error){
+    console.warn(`[OPTIONAL NOTION SOURCE] ${label}を取得できないため空の一覧で続行します: ${error?.message||error}`);
+    return [];
+  }
+}
+
 function isPublishReady(page,label){
   const web=checkboxValue(prop(page,"Web公開"));
   const status=textValue(prop(page,"レビュー状態"));
@@ -504,7 +513,7 @@ async function buildFromNotion(){
 
  const [allDrugs,allTopics,allTroubles,allQuestions,therapeuticAreas,clinicalDrugClasses]=await Promise.all([
   queryAll(notion,IDS.drugs),queryAll(notion,IDS.topics),queryAll(notion,IDS.troubles),queryAll(notion,IDS.questions),
-  queryAll(notion,IDS.therapeuticAreas),queryAll(notion,IDS.clinicalDrugClasses)
+  queryOptional(notion,IDS.therapeuticAreas,"治療領域"),queryOptional(notion,IDS.clinicalDrugClasses,"薬剤クラス")
  ]);
  console.log(`[NOTION FETCH] 全件取得 薬剤=${allDrugs.length} / トピック=${allTopics.length} / 困りごと=${allTroubles.length} / 質問=${allQuestions.length} / 治療領域=${therapeuticAreas.length} / 臨床薬剤クラス=${clinicalDrugClasses.length}`);
 
@@ -769,7 +778,7 @@ async function buildFromNotion(){
    const name=textValue(prop(area,"名前"));
    const count=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(area.id)).length;
    return `<a class="clinical-card" href="/professionals/therapeutic-areas/${esc(slugifyClass(name))}/"><small>治療領域</small><h2>${esc(name)}</h2><p>${count}件の薬剤クラス</p></a>`;
-  }).join("")}</div></section>`));
+  }).join("")||"<p>臨床薬学データを準備中です。</p>"}</div></section>`));
 
  for(const area of sortedAreas){
   const name=textValue(prop(area,"名前")),slug=slugifyClass(name);
@@ -787,7 +796,7 @@ async function buildFromNotion(){
   <p class="lead">作用機序別の薬剤クラスから、生活への影響、観察項目、注意するタイミングを確認できます。</p>
   <div class="find-switch"><a href="/professionals/therapeutic-areas/">治療領域から探す</a><a class="active" href="/professionals/drug-classes/">薬剤クラスから探す</a></div>
   <input id="filter" class="filter-input" type="search" placeholder="薬剤クラス・薬剤名を入力">
-  <div class="clinical-grid">${sortedClinicalClasses.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" data-filter="${esc(n+" "+clinicalField(c,"💊主な薬名"))}" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>${esc(clinicalAreaNames(c).map(id=>areaNameById.get(id)).filter(Boolean).join(" / ")||"薬剤クラス")}</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名"))}</p></a>`}).join("")}</div>${filterScript}</section>`));
+  <div class="clinical-grid">${sortedClinicalClasses.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" data-filter="${esc(n+" "+clinicalField(c,"💊主な薬名"))}" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>${esc(clinicalAreaNames(c).map(id=>areaNameById.get(id)).filter(Boolean).join(" / ")||"薬剤クラス")}</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名"))}</p></a>`}).join("")||"<p>臨床薬学データを準備中です。</p>"}</div>${filterScript}</section>`));
 
  for(const c of sortedClinicalClasses){
   const name=textValue(prop(c,"薬効群"));if(!name)continue;
