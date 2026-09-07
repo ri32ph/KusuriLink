@@ -1,8 +1,15 @@
 # v0.10.0
 
+治療領域の個別ページに、Notionの次の画像プロパティを掲載する。
+
+- `生活５兆候＋α`
+- `ADR（よくある＋要注意）`
+
+画像はビルド時にサイト内へ保存するため、Notionの一時的なファイルURLが失効しても表示を維持できる。
+
 `/professionals/` に、臨床薬学データベースを利用する専門職向けの入口を追加。
 
-- `/professionals/therapeutic-areas/`：治療領域（適応・目的）から探す
+- `/professionals/therapeutic-areas/`：疾患・薬効群別に探す
 - `/professionals/drug-classes/`：薬剤クラス（作用機序別）から探す
 - `/professionals/qa/`：既存の専門職向けQ&A
 
