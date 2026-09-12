@@ -167,6 +167,100 @@ function clinicalImageSection(title,images){
 }
 
 function relationIds(p){return (p?.relation||[]).map(x=>x.id);}
+// The completed layout is deliberately limited to the verified metformin row.
+const METFORMIN_ID="8d2f9325edd7425db5d1dcac70690b0f";
+function isMetforminPilot(d){return d.id.replaceAll("-","")===METFORMIN_ID && textValue(prop(d,"slug"))==="metformin";}
+async function completeRelationIds(notion,page,name){
+  const p=prop(page,name);
+  if(!p?.has_more)return relationIds(p);
+  const ids=[];let cursor;
+  do{
+    const res=await notion.pages.properties.retrieve({page_id:page.id,property_id:p.id,start_cursor:cursor,page_size:100});
+    for(const item of res.results||[])if(item.relation?.id)ids.push(item.relation.id);
+    cursor=res.has_more?res.next_cursor:undefined;
+  }while(cursor);
+  return [...new Set(ids)];
+}
+function pilotSection(id,title,body){
+  return body.trim()?`<section id="${id}" class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">${esc(title)}</h2></div>${body}</section>`:"";
+}
+function pilotBodySections(blocks){
+  const allowed=new Map([["まず知っておきたいこと","essentials"],["よくみられる症状","common-symptoms"],["注意したい症状","warning-symptoms"],["生活の中で気をつけること","daily-life"]]);
+  const subheads=new Map([["食事・体調","food-health"],["検査・手術","tests-surgery"],["飲み忘れ","missed-dose"]]);
+  const sections=new Map();const anchors=new Set();let current;
+  for(const b of blocks){
+    const text=richTextFromBlock(b).trim();
+    if(b.type==="heading_1"||b.type==="heading_2"){
+      current=allowed.get(text);if(current&&!sections.has(current))sections.set(current,[]);
+      continue;
+    }
+    if(!current||!text)continue;
+    if(b.type==="heading_3"){
+      const id=subheads.get(text);
+      if(id&&!anchors.has(id)){anchors.add(id);sections.get(current).push(`<h3 id="${id}">${esc(text)}</h3>`);}
+      else sections.get(current).push(`<h3>${esc(text)}</h3>`);
+    }else if(["paragraph","bulleted_list_item","numbered_list_item","callout"].includes(b.type)){
+      sections.get(current).push(`<p>${esc(text)}</p>`);
+    }
+  }
+  return {sections:new Map([...sections].map(([id,parts])=>[id,parts.join("")])),anchors};
+}
+function pilotTopicCard(t){
+  return `<a class="card" href="/topics/${esc(textValue(prop(t,"slug")))}/"><h3>${esc(textValue(prop(t,"トピック名")))}</h3><p>${esc(textValue(prop(t,"患者向け要約")))}</p><span class="more-link">詳しく見る →</span></a>`;
+}
+function safeSourceUrl(value){try{const u=new URL(value);return ["https:","http:"].includes(u.protocol)?u.href:"";}catch{return "";}}
+async function renderMetforminPilot(notion,d,topicMap,troubleMap,generalQuestions){
+  const [topicIds,troubleIds,questionIds,evidenceIds,blocks]=await Promise.all([
+    completeRelationIds(notion,d,"トピック"),completeRelationIds(notion,d,"困りごと"),
+    completeRelationIds(notion,d,"質問"),completeRelationIds(notion,d,"根拠資料"),getBlocks(notion,d.id)
+  ]);
+  const topics=topicIds.map(id=>topicMap.get(id)).filter(Boolean);
+  const troubles=troubleIds.map(id=>troubleMap.get(id)).filter(Boolean);
+  const qMap=new Map(generalQuestions.map(q=>[q.id,q]));
+  const questions=questionIds.map(id=>qMap.get(id)).filter(Boolean);
+  const evidence=[];
+  for(const id of evidenceIds){
+    const row=await notion.pages.retrieve({page_id:id});
+    if(row.archived||row.in_trash||!checkboxValue(prop(row,"Web公開")))continue;
+    const url=safeSourceUrl(textValue(prop(row,"資料URL")));
+    if(url&&textValue(prop(row,"資料名")))evidence.push({row,url});
+  }
+  const {sections,anchors}=pilotBodySections(blocks);
+  const routes=new Map([["metformin-gi-symptoms","common-symptoms"],["metformin-lactic-acidosis","warning-symptoms"],["metformin-hold-sick-day","daily-life"]]);
+  const topicGroups=new Map();
+  for(const topic of topics){const key=routes.get(textValue(prop(topic,"slug")))||"essentials";if(!topicGroups.has(key))topicGroups.set(key,[]);topicGroups.get(key).push(topic);}
+  const bodyFor=id=>(sections.get(id)||"")+(topicGroups.has(id)?`<div class="grid">${topicGroups.get(id).map(pilotTopicCard).join("")}</div>`:"");
+  const howTo=topics.find(t=>textValue(prop(t,"slug"))==="metformin-how-to-take");
+  const nav=[
+    ["飲み方",howTo?`/topics/${textValue(prop(howTo,"slug"))}/`:bodyFor("essentials")?"#essentials":""],
+    ["食事・体調",anchors.has("food-health")?"#food-health":""],
+    ["よくある症状",bodyFor("common-symptoms")?"#common-symptoms":""],
+    ["注意したい症状",bodyFor("warning-symptoms")?"#warning-symptoms":""],
+    ["検査・手術",anchors.has("tests-surgery")?"#tests-surgery":""],
+    ["飲み忘れ",anchors.has("missed-dose")?"#missed-dose":""]
+  ].filter(([,href])=>href);
+  const name=textValue(prop(d,"薬剤名"));const match=name.match(/^(.+?)（(.+)）$/);
+  const classes=drugClassNames(d);
+  const classLinks=classes.map(n=>`<a class="more-link" href="/classes/${esc(slugifyClass(n))}/">${esc(n==="ビグアナイド"?"ビグアナイド薬":n)} →</a>`).join(" / ");
+  const troubleCards=troubles.map(t=>`<a class="card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><h3>${esc(textValue(prop(t,"困りごと")))}</h3><p>${esc(textValue(prop(t,"短い回答")))}</p><span class="more-link">詳しく見る →</span></a>`).join("");
+  const qaCards=questions.map(q=>`<details class="panel"><summary>${esc(textValue(prop(q,"質問")))}</summary><p>${esc(textValue(prop(q,"回答案")))}</p><a class="more-link" href="/qa/${esc(questionSlug(q))}/">詳しい回答を見る →</a></details>`).join("");
+  const sources=evidence.map(({row,url})=>`<li><a href="${esc(url)}">${esc(textValue(prop(row,"資料名")))}</a><div>${esc(textValue(prop(row,"発行元・著者")))}${textValue(prop(row,"資料種別"))?` · ${esc(textValue(prop(row,"資料種別")))}`:""}</div><a class="source-url" href="${esc(url)}">${esc(url)}</a></li>`).join("");
+  const review=textValue(prop(d,"最終レビュー"));
+  console.log(`[METFORMIN RELATIONS] topics=${topics.length} troubles=${troubles.length} generalQA=${questions.length} evidence=${evidence.length}`);
+  return `<article class="metformin-detail">
+  <style>.metformin-detail{max-width:900px;margin:auto}.metformin-detail [id]{scroll-margin-top:150px}.metformin-detail .drug-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.metformin-detail .drug-nav a{display:flex;align-items:center;justify-content:space-between;min-height:64px;padding:14px 18px;border:1px solid var(--line2);border-radius:12px;text-decoration:none;font-weight:700;background:var(--accent-pale)}.metformin-detail a:focus-visible,.metformin-detail summary:focus-visible{outline:3px solid var(--ink);outline-offset:4px}.metformin-detail .grid{margin-top:20px}.metformin-detail summary{min-height:48px;padding:12px 0;cursor:pointer;font-weight:700}.metformin-detail details+details{margin-top:12px}.metformin-detail .source-list{padding-left:22px}.metformin-detail .source-list li{margin:0 0 22px}.metformin-detail .source-url{font-size:12px;overflow-wrap:anywhere}.metformin-detail .brand-name{color:var(--muted)}@media(max-width:600px){.metformin-detail .drug-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.metformin-detail .drug-nav a{padding:12px;font-size:14px}.metformin-detail [id]{scroll-margin-top:190px}}</style>
+  <section class="section"><div class="kicker">薬の情報</div><h1>${esc(match?match[1]:name)}</h1>${match?`<p class="brand-name">主な製品名：${esc(match[2])}</p>`:""}${classLinks?`<p>薬効群：${classLinks}</p>`:""}<h2>どんな薬？</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></section>
+  ${pilotSection("know","この薬について知りたいこと",nav.length?`<nav class="drug-nav" aria-label="この薬について知りたいこと">${nav.map(([label,href])=>`<a href="${esc(href)}">${esc(label)}<span aria-hidden="true">→</span></a>`).join("")}</nav>`:"")}
+  ${pilotSection("essentials","まず知っておきたいこと",bodyFor("essentials"))}
+  ${pilotSection("common-symptoms","よくみられる症状",bodyFor("common-symptoms"))}
+  ${pilotSection("warning-symptoms","注意したい症状",bodyFor("warning-symptoms"))}
+  ${pilotSection("daily-life","生活の中で気をつけること",bodyFor("daily-life"))}
+  ${pilotSection("troubles","こんなときは？",troubleCards?`<div class="grid">${troubleCards}</div>`:"")}
+  ${pilotSection("questions","よくある質問",qaCards)}
+  ${pilotSection("drug-group","この薬のグループについて",classLinks?`<div class="panel"><p>同じグループの薬を確認できます。</p>${classLinks}</div>`:"")}
+  ${pilotSection("sources","情報源",sources?`<ul class="source-list">${sources}</ul>`:"")}
+  ${review?`<p class="section ref">最終確認日：<time datetime="${esc(review)}">${esc(review)}</time></p>`:""}</article>`;
+}
 function checkboxValue(p){return !!p?.checkbox;}
 
 
@@ -697,6 +791,11 @@ async function buildFromNotion(){
 
  for(const d of approvedDrugs){
   const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言")),reviewDate=textValue(prop(d,"最終レビュー"));
+  if(isMetforminPilot(d)){
+    const dir=path.join(OUT,"drugs","metformin");await fs.mkdir(dir,{recursive:true});
+    await fs.writeFile(path.join(dir,"index.html"),shell("メトホルミン",await renderMetforminPilot(notion,d,topicMap,troubleMap,generalQuestions)));
+    continue;
+  }
   const topicCards=relationIds(prop(d,"トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(t=>`<a class="card" href="/topics/${esc(textValue(prop(t,"slug")))}/"><span>${esc(textValue(prop(t,"カテゴリ")))}</span><h3>${esc(textValue(prop(t,"トピック名")))}</h3><p>${esc(textValue(prop(t,"患者向け要約")))}</p></a>`).join("");
   const troubleCards=relationIds(prop(d,"困りごと")).map(id=>troubleMap.get(id)).filter(Boolean).map(t=>{
     const category=textValue(prop(t,"カテゴリ"));
