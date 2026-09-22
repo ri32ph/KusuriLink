@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs && node scripts/inject-renal.mjs"
   },
   "dependencies": {
     "@notionhq/client": "^5.1.0"
