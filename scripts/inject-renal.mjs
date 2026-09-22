@@ -42,11 +42,11 @@ function notionFiles(page, name) {
   })).filter(file => file.url);
 }
 
-function imageExtension(name, url, contentType = "") {
-  const fromName = String(name || "").match(/\.(avif|gif|jpe?g|png|svg|webp)$/i)?.[1];
+function fileExtension(name, url, contentType = "") {
+  const fromName = String(name || "").match(/\.(avif|gif|jpe?g|png|svg|webp|pdf)$/i)?.[1];
   if (fromName) return fromName.toLowerCase().replace("jpeg", "jpg");
   try {
-    const fromUrl = new URL(url).pathname.match(/\.(avif|gif|jpe?g|png|svg|webp)$/i)?.[1];
+    const fromUrl = new URL(url).pathname.match(/\.(avif|gif|jpe?g|png|svg|webp|pdf)$/i)?.[1];
     if (fromUrl) return fromUrl.toLowerCase().replace("jpeg", "jpg");
   } catch {}
   const byType = {
@@ -56,6 +56,7 @@ function imageExtension(name, url, contentType = "") {
     "image/png": "png",
     "image/svg+xml": "svg",
     "image/webp": "webp",
+    "application/pdf": "pdf",
   };
   return byType[contentType.split(";")[0].toLowerCase()] || "";
 }
@@ -75,40 +76,48 @@ async function queryAll(dataSourceId) {
   return out;
 }
 
-async function downloadRenalImages(page, slug) {
+async function downloadRenalFiles(page, slug) {
   const files = notionFiles(page, "腎機能");
   if (!files.length) return [];
 
   const assetDir = path.join(OUT, "assets", "clinical", "therapeutic-areas", slug);
   await fs.mkdir(assetDir, { recursive: true });
 
-  const images = [];
+  const downloaded = [];
   for (const [index, file] of files.entries()) {
     try {
       const response = await fetch(file.url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const contentType = response.headers.get("content-type") || "";
-      const ext = imageExtension(file.name, file.url, contentType);
+      const ext = fileExtension(file.name, file.url, contentType);
       if (!ext) {
-        console.warn(`[RENAL IMAGE] 画像以外のファイルをスキップしました (${file.name})`);
+        console.warn(`[RENAL] 対応していないファイルをスキップしました (${file.name})`);
         continue;
       }
       const fileName = `renal-${index + 1}.${ext}`;
       await fs.writeFile(path.join(assetDir, fileName), Buffer.from(await response.arrayBuffer()));
-      images.push({
+      downloaded.push({
         src: `/assets/clinical/therapeutic-areas/${slug}/${fileName}`,
-        alt: file.name,
+        name: file.name,
+        type: ext === "pdf" ? "pdf" : "image",
       });
     } catch (error) {
-      console.warn(`[RENAL IMAGE] ${file.name}を取得できませんでした: ${error?.message || error}`);
+      console.warn(`[RENAL] ${file.name}を取得できませんでした: ${error?.message || error}`);
     }
   }
-  return images;
+  return downloaded;
 }
 
-function renalSection(images) {
-  if (!images.length) return "";
-  return `<section class="clinical-figure-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">腎機能</h2></div>\n   <div class="clinical-figures">${images.map((image, index) => `<figure><img src="${esc(image.src)}" alt="${esc(`腎機能の図解${images.length > 1 ? ` ${index + 1}` : ""}`)}" loading="lazy"></figure>`).join("")}</div></section>`;
+function renalSection(files) {
+  if (!files.length) return "";
+  const body = files.map((file, index) => {
+    if (file.type === "pdf") {
+      return `<div class="renal-pdf" style="margin:18px 0 8px"><object data="${esc(file.src)}" type="application/pdf" style="display:block;width:100%;height:min(78vh,820px);border:1px solid var(--line,#e5e7eb);border-radius:14px;background:#fff"><p>PDFを表示できません。<a href="${esc(file.src)}" target="_blank" rel="noopener">PDFを開く</a></p></object><p style="margin:10px 0 0"><a class="more-link" href="${esc(file.src)}" target="_blank" rel="noopener">PDFを開く →</a></p></div>`;
+    }
+    return `<figure><img src="${esc(file.src)}" alt="${esc(`腎機能の図解${files.length > 1 ? ` ${index + 1}` : ""}`)}" loading="lazy"></figure>`;
+  }).join("");
+
+  return `<section class="clinical-figure-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">腎機能</h2></div>\n   <div class="clinical-figures">${body}</div></section>`;
 }
 
 async function main() {
@@ -133,13 +142,13 @@ async function main() {
       continue;
     }
 
-    const images = await downloadRenalImages(area, slug);
-    if (!images.length) continue;
+    const files = await downloadRenalFiles(area, slug);
+    if (!files.length) continue;
 
     let html = await fs.readFile(htmlPath, "utf8");
     if (html.includes('<h2 class="section-title">腎機能</h2>')) continue;
 
-    const section = renalSection(images);
+    const section = renalSection(files);
     const adrMarker = '<section class="clinical-figure-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">ADR（よくある＋要注意）</h2>';
     const classesMarker = '<section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">関連する薬剤クラス</h2>';
 
@@ -154,7 +163,7 @@ async function main() {
 
     await fs.writeFile(htmlPath, html);
     updated += 1;
-    console.log(`[RENAL] ${name}: 腎機能セクションを追加しました (${images.length}画像)`);
+    console.log(`[RENAL] ${name}: 腎機能セクションを追加しました (${files.length}ファイル)`);
   }
 
   console.log(`[RENAL] 更新ページ数=${updated}`);
