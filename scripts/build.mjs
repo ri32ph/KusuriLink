@@ -561,6 +561,12 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .directory-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
 .directory-card{display:block;text-decoration:none;border:1px solid var(--line);border-radius:13px;padding:17px;background:#fff}
 .directory-card small{color:var(--muted)}.directory-card h2{font-size:18px;margin:7px 0}.directory-card p{font-size:13px;color:var(--muted);margin:0}
+.trouble-filter-panel{margin:8px 0 26px;padding:20px;border:1px solid var(--line);border-radius:16px;background:#fff}
+.trouble-filter-group+.trouble-filter-group{margin-top:18px}.trouble-filter-label{display:block;margin-bottom:9px;font-size:13px;font-weight:800;color:var(--muted)}
+.trouble-filter-chips{display:flex;flex-wrap:wrap;gap:8px}.trouble-filter-chip{border:1px solid var(--line);border-radius:999px;padding:8px 13px;background:#fff;color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer}.trouble-filter-chip:hover{border-color:#efad9f}.trouble-filter-chip.active{background:var(--accent-pale);border-color:#efad9f;color:var(--accent)}
+.trouble-result-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:10px 0 14px}.trouble-result-title{margin:0;font-size:18px}.trouble-result-count{font-size:13px;color:var(--muted)}
+.trouble-card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}.trouble-card-tag{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:11px;font-weight:700}.trouble-card-tag.area{background:var(--accent-pale);color:#a84334}
+.trouble-empty{display:none;grid-column:1/-1;padding:24px;border:1px dashed var(--line2);border-radius:13px;color:var(--muted);text-align:center}
 
 
 .about-intro{margin-top:54px;padding:34px 36px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}
@@ -680,10 +686,19 @@ async function buildFromNotion(){
  for(const d of drugRows) if(await hasRequiredBrandEvidence(notion,d)) approvedDrugs.push(d);
  const approvedTopics=topicRows, approvedTroubles=troubleRows;
  const generalTroubles=approvedTroubles.filter(isGeneralTrouble);
+ const approvedAreas=therapeuticAreas.filter(a=>isClinicalPublishReady(a,`治療領域:${textValue(prop(a,"名前"))||a.id}`));
+ const approvedClinicalClasses=clinicalDrugClasses.filter(c=>isClinicalPublishReady(c,`薬剤クラス:${textValue(prop(c,"薬効群"))||c.id}`));
 
  const drugMap=new Map(approvedDrugs.map(x=>[x.id,x]));
  const topicMap=new Map(approvedTopics.map(x=>[x.id,x]));
  const troubleMap=new Map(approvedTroubles.map(x=>[x.id,x]));
+ const areaMap=new Map(approvedAreas.map(x=>[x.id,x]));
+ const clinicalClassMap=new Map(approvedClinicalClasses.map(x=>[x.id,x]));
+ const troubleAreas=t=>relationIds(prop(t,"関連する治療領域まとめ")).map(id=>areaMap.get(id)).filter(Boolean);
+ const troubleAreaNames=t=>troubleAreas(t).map(a=>textValue(prop(a,"名前"))).filter(Boolean);
+ const troubleAreaSlugs=t=>troubleAreaNames(t).map(slugifyClass);
+ const troubleDrugNames=t=>relationIds(prop(t,"関連薬剤")).map(id=>drugMap.get(id)).filter(Boolean).map(d=>textValue(prop(d,"薬剤名"))).filter(Boolean);
+ const troubleDrugClassNames=t=>relationIds(prop(t,"関連する薬効群")).map(id=>clinicalClassMap.get(id)).filter(Boolean).map(c=>textValue(prop(c,"薬効群"))).filter(Boolean);
 
  const drugCards=approvedDrugs.map(d=>{
   const name=textValue(prop(d,"薬剤名")),slug=textValue(prop(d,"slug")),lead=textValue(prop(d,"患者向け一言"));
@@ -746,10 +761,39 @@ async function buildFromNotion(){
   <input id="filter" class="filter-input" type="search" placeholder="薬剤名を入力">
   <div class="directory-grid">${approvedDrugs.map(d=>`<a class="directory-card" data-filter="${esc(textValue(prop(d,"薬剤名"))+" "+drugClassValue(d))}" href="/drugs/${esc(textValue(prop(d,"slug")))}/">${drugClassValue(d)?`<small>${esc(drugClassValue(d))}</small>`:""}<h2>${esc(textValue(prop(d,"薬剤名")))}</h2><p>${esc(textValue(prop(d,"患者向け一言")))}</p></a>`).join("")||"<p>現在、公開中の薬はない。</p>"}</div>${filterScript}
  `));
+ const troubleAreaOptions=[...new Map(approvedTroubles.flatMap(t=>troubleAreas(t)).map(a=>[a.id,a])).values()]
+  .sort((a,b)=>textValue(prop(a,"名前")).localeCompare(textValue(prop(b,"名前")),"ja"));
+ const troubleCategories=[...new Set(approvedTroubles.map(t=>textValue(prop(t,"カテゴリ"))).filter(Boolean))];
+
  await fs.writeFile(path.join(OUT,"troubles","index.html"),shell("困りごとから探す",`
-  <section class="directory-head"><div class="kicker">TROUBLE DIRECTORY</div><h1>困りごとから探す</h1><p class="lead">症状や生活の場面から関連情報を探せる。一般的な原則に加えて、薬効群・薬剤ごとの情報も掲載しています。</p></section>
-  <input id="filter" class="filter-input" type="search" placeholder="困りごとを入力">
-  <div class="directory-grid">${approvedTroubles.map(t=>`<a class="directory-card" data-filter="${esc(textValue(prop(t,"困りごと"))+" "+textValue(prop(t,"カテゴリ")))}" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><h2>${esc(textValue(prop(t,"困りごと")))}</h2><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("")||"<p>現在、公開中の困りごとはない。</p>"}</div>${filterScript}
+  <section class="directory-head"><div class="kicker">TROUBLE DIRECTORY</div><h1>困りごとから探す</h1><p class="lead">気になっていることから探せます。治療領域や内容を選ぶと、関連する情報に絞り込めます。</p></section>
+  <input id="troubleSearch" class="filter-input" type="search" placeholder="例：水分、下痢、飲み忘れ、歯科..." autocomplete="off">
+  <section class="trouble-filter-panel" aria-label="困りごとの絞り込み">
+   <div class="trouble-filter-group"><span class="trouble-filter-label">治療領域から探す</span><div class="trouble-filter-chips" id="areaFilters">
+    <button class="trouble-filter-chip active" type="button" data-area-filter="all">すべて</button>
+    ${troubleAreaOptions.map(area=>{const name=textValue(prop(area,"名前"));return `<button class="trouble-filter-chip" type="button" data-area-filter="${esc(slugifyClass(name))}">${esc(name)}</button>`;}).join("")}
+   </div></div>
+   <div class="trouble-filter-group"><span class="trouble-filter-label">気になる内容</span><div class="trouble-filter-chips" id="categoryFilters">
+    <button class="trouble-filter-chip active" type="button" data-category-filter="all">すべて</button>
+    ${troubleCategories.map(category=>`<button class="trouble-filter-chip" type="button" data-category-filter="${esc(category)}">${esc(category)}</button>`).join("")}
+   </div></div>
+  </section>
+  <div class="trouble-result-head"><h2 id="resultTitle" class="trouble-result-title">すべての困りごと</h2><span id="resultCount" class="trouble-result-count"></span></div>
+  <div class="directory-grid" id="troubleGrid">${approvedTroubles.map(t=>{
+   const title=textValue(prop(t,"困りごと")),category=textValue(prop(t,"カテゴリ")),short=textValue(prop(t,"短い回答")),question=textValue(prop(t,"患者さんの質問例")),slug=textValue(prop(t,"slug"));
+   const areaNames=troubleAreaNames(t),areaSlugs=troubleAreaSlugs(t),drugNames=troubleDrugNames(t),drugClassNames=troubleDrugClassNames(t);
+   const searchText=[title,question,short,category,...areaNames,...drugNames,...drugClassNames].filter(Boolean).join(" ");
+   return `<a class="directory-card trouble-directory-card" data-search="${esc(searchText)}" data-category="${esc(category)}" data-areas="${esc(areaSlugs.join(" "))}" href="/troubles/${esc(slug)}/"><div class="trouble-card-tags">${areaNames.map(name=>`<span class="trouble-card-tag area">${esc(name)}</span>`).join("")}${category?`<span class="trouble-card-tag">${esc(category)}</span>`:""}</div><h2>${esc(title)}</h2><p>${esc(short)}</p></a>`;
+  }).join("")||"<p>現在、公開中の困りごとはない。</p>"}<p id="troubleEmpty" class="trouble-empty">条件に合う困りごとはありません。検索語や絞り込みを変えてみてください。</p></div>
+  <script>(()=>{
+   const search=document.getElementById("troubleSearch"),cards=[...document.querySelectorAll(".trouble-directory-card")],areaButtons=[...document.querySelectorAll("[data-area-filter]")],categoryButtons=[...document.querySelectorAll("[data-category-filter]")],count=document.getElementById("resultCount"),title=document.getElementById("resultTitle"),empty=document.getElementById("troubleEmpty");
+   let currentArea="all",currentCategory="all";const params=new URLSearchParams(location.search),initialArea=params.get("area"),initialCategory=params.get("category"),initialQuery=params.get("q");
+   if(initialQuery)search.value=initialQuery;if(initialArea&&areaButtons.some(b=>b.dataset.areaFilter===initialArea))currentArea=initialArea;if(initialCategory&&categoryButtons.some(b=>b.dataset.categoryFilter===initialCategory))currentCategory=initialCategory;
+   const setActive=()=>{areaButtons.forEach(b=>b.classList.toggle("active",b.dataset.areaFilter===currentArea));categoryButtons.forEach(b=>b.classList.toggle("active",b.dataset.categoryFilter===currentCategory));};
+   const updateUrl=()=>{const p=new URLSearchParams(),q=search.value.trim();if(q)p.set("q",q);if(currentArea!=="all")p.set("area",currentArea);if(currentCategory!=="all")p.set("category",currentCategory);history.replaceState(null,"",location.pathname+(p.toString()?"?"+p.toString():""));};
+   const apply=()=>{const q=search.value.trim().toLowerCase();let visible=0;cards.forEach(card=>{const matchesSearch=!q||(card.dataset.search||"").toLowerCase().includes(q),areas=(card.dataset.areas||"").split(" ").filter(Boolean),matchesArea=currentArea==="all"||areas.includes(currentArea),matchesCategory=currentCategory==="all"||(card.dataset.category||"")===currentCategory,show=matchesSearch&&matchesArea&&matchesCategory;card.style.display=show?"":"none";if(show)visible++;});count.textContent=visible+"件";empty.style.display=visible?"none":"block";const areaButton=areaButtons.find(b=>b.dataset.areaFilter===currentArea);title.textContent=currentArea!=="all"&&areaButton?areaButton.textContent.trim()+"の困りごと":"すべての困りごと";setActive();updateUrl();};
+   search.addEventListener("input",apply);areaButtons.forEach(b=>b.addEventListener("click",()=>{currentArea=b.dataset.areaFilter;apply();}));categoryButtons.forEach(b=>b.addEventListener("click",()=>{currentCategory=b.dataset.categoryFilter;apply();}));setActive();apply();
+  })();</script>
  `));
  await fs.writeFile(path.join(OUT,"topics","index.html"),shell("まず知っておきたい",`
   <section class="directory-head"><div class="kicker">TOPICS</div><h1>まず知っておきたい</h1><p class="lead">飲み方、作用、注意点などの基本情報。</p></section>
@@ -828,10 +872,12 @@ async function buildFromNotion(){
  for(const t of approvedTroubles){
   const title=textValue(prop(t,"困りごと")),slug=textValue(prop(t,"slug")),category=textValue(prop(t,"カテゴリ")),question=textValue(prop(t,"患者さんの質問例")),short=textValue(prop(t,"短い回答")),urgency=textValue(prop(t,"緊急度")),reviewDate=textValue(prop(t,"最終レビュー"));
   const relatedTopics=relationIds(prop(t,"関連トピック")).map(id=>topicMap.get(id)).filter(Boolean).map(x=>`<a class="card" href="/topics/${esc(textValue(prop(x,"slug")))}/"><span>${esc(textValue(prop(x,"カテゴリ")))}</span><h3>${esc(textValue(prop(x,"トピック名")))}</h3><p>${esc(textValue(prop(x,"患者向け要約")))}</p></a>`).join("");
+  const relatedAreaLinks=troubleAreas(t).map(a=>{const n=textValue(prop(a,"名前")),s=slugifyClass(n);return `<a class="related-link" href="/troubles/?area=${encodeURIComponent(s)}">${esc(n)}</a>`;}).join("");
   const dir=path.join(OUT,"troubles",slug);await fs.mkdir(dir,{recursive:true});
   await fs.writeFile(path.join(dir,"index.html"),shell(title,`
    <section class="hero" style="grid-template-columns:1fr"><div><div class="kicker">${esc(category)}</div><h1>${esc(title)}</h1>${question?`<p class="lead">「${esc(question)}」</p>`:""}</div></section>
    <section class="section panel soft"><div class="eyebrow">まず確認</div><h2>${esc(short||"関連する情報を確認する")}</h2>${urgency?`<p class="ref">相談の目安：${esc(urgency)}</p>`:""}</section>
+   ${relatedAreaLinks?`<section class="section"><div class="eyebrow">関連する治療領域</div><div class="related-row">${relatedAreaLinks}</div></section>`:""}
    <section class="section section-divider"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">詳しく見る</h2></div><div class="grid">${relatedTopics||"<p>関連トピックはまだない。</p>"}</div></section>
    <section class="section ref">最終レビュー：${esc(reviewDate)}</section>`));
  }
@@ -910,8 +956,6 @@ async function buildFromNotion(){
   <h2>更新について</h2>
   <p>医薬品情報や診療上の推奨は更新されることがあります。新しい情報が確認された場合や、掲載内容の見直しが必要と判断した場合には、内容を更新します。</p>
  </article>`));
- const approvedAreas=therapeuticAreas.filter(a=>isClinicalPublishReady(a,`治療領域:${textValue(prop(a,"名前"))||a.id}`));
- const approvedClinicalClasses=clinicalDrugClasses.filter(c=>isClinicalPublishReady(c,`薬剤クラス:${textValue(prop(c,"薬効群"))||c.id}`));
  const sortedAreas=[...approvedAreas].sort((a,b)=>textValue(prop(a,"名前")).localeCompare(textValue(prop(b,"名前")),"ja"));
  const sortedClinicalClasses=[...approvedClinicalClasses].sort((a,b)=>{
   const orderA=prop(a,"表示順")?.number??999,orderB=prop(b,"表示順")?.number??999;
@@ -942,6 +986,7 @@ async function buildFromNotion(){
  for(const area of sortedAreas){
   const name=textValue(prop(area,"名前")),slug=slugifyClass(name);
   const related=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(name));
+  const relatedTroubles=approvedTroubles.filter(t=>relationIds(prop(t,"関連する治療領域まとめ")).includes(area.id));
   const [dailySignsImages,adrImages]=await Promise.all([
    downloadClinicalImages(area,"生活５兆候＋α",slug),
    downloadClinicalImages(area,"ADR（よくある＋要注意）",slug)
@@ -953,6 +998,7 @@ async function buildFromNotion(){
    ${clinicalImageSection("ADR（よくある＋要注意）",adrImages)}
    <section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">関連する薬剤クラス</h2></div>
    <div class="clinical-grid">${related.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>薬剤クラス</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名")||clinicalField(c,"主な用途"))}</p></a>`}).join("")||"<p>関連する薬剤クラスはまだ登録されていません。</p>"}</div></section>
+   ${relatedTroubles.length?`<section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">関連する患者さんの困りごと</h2></div><div class="clinical-grid">${relatedTroubles.slice(0,6).map(t=>`<a class="clinical-card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><h2>${esc(textValue(prop(t,"困りごと")))}</h2><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("")}</div><a class="more-link" href="/troubles/?area=${encodeURIComponent(slug)}">${esc(name)}の困りごとをすべて見る →</a></section>`:""}
    <p class="clinical-back"><a class="more-link" href="/professionals/therapeutic-areas/">← 疾患・薬効群の一覧へ戻る</a></p></article>`));
  }
 
