@@ -151,7 +151,12 @@ async function downloadClinicalImages(page,propertyName,areaSlug){
         console.warn(`[CLINICAL IMAGE] ${propertyName}: 画像以外のファイルをスキップしました (${file.name})`);
         continue;
       }
-      const fileName=`${propertyName.startsWith("生活")?"daily-signs":"adr"}-${index+1}.${ext}`;
+      const assetPrefix = propertyName.startsWith("生活")
+        ? "daily-signs"
+        : propertyName.includes("腎機能")
+          ? "renal-function"
+          : "adr";
+      const fileName=`${assetPrefix}-${index+1}.${ext}`;
       await fs.writeFile(path.join(assetDir,fileName),Buffer.from(await response.arrayBuffer()));
       images.push({src:`/assets/clinical/therapeutic-areas/${areaSlug}/${fileName}`,alt:file.name});
     }catch(error){
@@ -164,6 +169,46 @@ function clinicalImageSection(title,images){
   if(!images.length)return "";
   return `<section class="clinical-figure-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">${esc(title)}</h2></div>
    <div class="clinical-figures">${images.map((image,index)=>`<figure><img src="${esc(image.src)}" alt="${esc(`${title}の図解${images.length>1?` ${index+1}`:""}`)}" loading="lazy"></figure>`).join("")}</div></section>`;
+}
+
+function documentExtension(name,url,contentType=""){
+  const fromName=String(name||"").match(/\.(pdf)$/i)?.[1];
+  if(fromName)return fromName.toLowerCase();
+  try{
+    const fromUrl=new URL(url).pathname.match(/\.(pdf)$/i)?.[1];
+    if(fromUrl)return fromUrl.toLowerCase();
+  }catch{}
+  return contentType.split(";")[0].toLowerCase()==="application/pdf"?"pdf":"";
+}
+async function downloadClinicalDocuments(page,propertyName,areaSlug){
+  const files=notionFiles(page,propertyName);
+  if(!files.length)return [];
+  const assetDir=path.join(OUT,"assets","clinical","therapeutic-areas",areaSlug);
+  await fs.mkdir(assetDir,{recursive:true});
+  const documents=[];
+  for(const [index,file] of files.entries()){
+    try{
+      const response=await fetch(file.url);
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      const contentType=response.headers.get("content-type")||"";
+      const ext=documentExtension(file.name,file.url,contentType);
+      if(!ext){
+        console.warn(`[CLINICAL DOCUMENT] ${propertyName}: PDF以外のファイルをスキップしました (${file.name})`);
+        continue;
+      }
+      const fileName=`renal-function-${index+1}.${ext}`;
+      await fs.writeFile(path.join(assetDir,fileName),Buffer.from(await response.arrayBuffer()));
+      documents.push({src:`/assets/clinical/therapeutic-areas/${areaSlug}/${fileName}`,name:file.name});
+    }catch(error){
+      console.warn(`[CLINICAL DOCUMENT] ${propertyName}: ${file.name}を取得できませんでした: ${error?.message||error}`);
+    }
+  }
+  return documents;
+}
+function clinicalDocumentSection(title,documents){
+  if(!documents.length)return "";
+  return `<section class="clinical-figure-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">${esc(title)}</h2></div>
+   <div class="clinical-documents">${documents.map(doc=>`<article class="clinical-document"><iframe src="${esc(doc.src)}#view=FitH" title="${esc(doc.name||title)}" loading="lazy"></iframe><p><a class="more-link" href="${esc(doc.src)}" target="_blank" rel="noopener noreferrer">PDFを開く →</a></p></article>`).join("")}</div></section>`;
 }
 
 function relationIds(p){return (p?.relation||[]).map(x=>x.id);}
@@ -607,10 +652,10 @@ footer{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);f
 .clinical-page{max-width:960px;padding:36px 0 70px}.clinical-page h1{font-size:clamp(36px,5vw,56px);margin:8px 0 12px}
 .clinical-data{border-top:1px solid var(--line);margin-top:28px}.clinical-row{display:grid;grid-template-columns:210px 1fr;gap:22px;padding:16px 0;border-bottom:1px solid var(--line)}
 .clinical-row dt{font-weight:800}.clinical-row dd{margin:0;color:#45484c;white-space:pre-line}.clinical-back{margin-top:34px}
-.clinical-figure-section{margin-top:36px}.clinical-figures{display:grid;gap:20px}.clinical-figures figure{margin:0;padding:14px;background:#fff;border:1px solid var(--line);border-radius:18px}.clinical-figures img{display:block;width:100%;height:auto;border-radius:10px}
+.clinical-figure-section{margin-top:36px}.clinical-figures{display:grid;gap:20px}.clinical-figures figure{margin:0;padding:14px;background:#fff;border:1px solid var(--line);border-radius:18px}.clinical-figures img{display:block;width:100%;height:auto;border-radius:10px}.clinical-documents{display:grid;gap:20px}.clinical-document{margin:0;padding:14px;background:#fff;border:1px solid var(--line);border-radius:18px}.clinical-document iframe{display:block;width:100%;height:720px;border:0;border-radius:10px;background:var(--soft)}.clinical-document p{margin:8px 0 0}
 
 @media(max-width:900px){.hero{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr}.entry{min-height:auto}.chips{grid-template-columns:1fr 1fr}.professional-entry-grid,.clinical-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.drug-entry-actions{grid-template-columns:1fr}.class-grid,.class-drugs,.professional-entry-grid,.clinical-grid{grid-template-columns:1fr}.clinical-row{grid-template-columns:1fr;gap:4px}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
+@media(max-width:640px){.clinical-document iframe{height:520px}.drug-entry-actions{grid-template-columns:1fr}.class-grid,.class-drugs,.professional-entry-grid,.clinical-grid{grid-template-columns:1fr}.clinical-row{grid-template-columns:1fr;gap:4px}.home-intro .lead{white-space:normal}.home-nav{grid-template-columns:repeat(2,1fr)}.preview-list,.directory-grid{grid-template-columns:1fr}.qa-list{grid-template-columns:1fr}.wrap{padding:0 18px}.header-link{display:none}h1{font-size:40px}.grid,.chips,.footer-grid{grid-template-columns:1fr}.search-row{flex-direction:column}.search-button{padding:14px 18px}}
 `;
 
 function shell(title,body){
@@ -987,15 +1032,17 @@ async function buildFromNotion(){
   const name=textValue(prop(area,"名前")),slug=slugifyClass(name);
   const related=sortedClinicalClasses.filter(c=>clinicalAreaNames(c).includes(name));
   const relatedTroubles=approvedTroubles.filter(t=>relationIds(prop(t,"関連する治療領域まとめ")).includes(area.id));
-  const [dailySignsImages,adrImages]=await Promise.all([
+  const [adrImages,dailySignsImages,renalDocuments]=await Promise.all([
+   downloadClinicalImages(area,"ADR（よくある＋要注意）",slug),
    downloadClinicalImages(area,"生活５兆候＋α",slug),
-   downloadClinicalImages(area,"ADR（よくある＋要注意）",slug)
+   downloadClinicalDocuments(area,"腎機能",slug)
   ]);
   const dir=path.join(OUT,"professionals","therapeutic-areas",slug);await fs.mkdir(dir,{recursive:true});
   await fs.writeFile(path.join(dir,"index.html"),shell(name,`<article class="clinical-page"><div class="kicker">CONDITION / DRUG GROUP</div><h1>${esc(name)}</h1>
    <p class="lead">この治療領域で用いられる主な薬剤クラスを、患者の症候・生活・観察行動の視点から確認します。</p>
-   ${clinicalImageSection("生活5兆候＋α",dailySignsImages)}
    ${clinicalImageSection("ADR（よくある＋要注意）",adrImages)}
+   ${clinicalImageSection("生活5兆候＋α",dailySignsImages)}
+   ${clinicalDocumentSection("腎機能に応じた用量調節",renalDocuments)}
    <section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">関連する薬剤クラス</h2></div>
    <div class="clinical-grid">${related.map(c=>{const n=textValue(prop(c,"薬効群"));return `<a class="clinical-card" href="/professionals/drug-classes/${esc(slugifyClass(n))}/"><small>薬剤クラス</small><h2>${esc(n)}</h2><p>${esc(clinicalField(c,"💊主な薬名")||clinicalField(c,"主な用途"))}</p></a>`}).join("")||"<p>関連する薬剤クラスはまだ登録されていません。</p>"}</div></section>
    ${relatedTroubles.length?`<section class="class-section"><div class="section-head"><span class="section-bar"></span><h2 class="section-title">関連する患者さんの困りごと</h2></div><div class="clinical-grid">${relatedTroubles.slice(0,6).map(t=>`<a class="clinical-card" href="/troubles/${esc(textValue(prop(t,"slug")))}/"><small>${esc(textValue(prop(t,"カテゴリ"))||"困りごと")}</small><h2>${esc(textValue(prop(t,"困りごと")))}</h2><p>${esc(textValue(prop(t,"短い回答")))}</p></a>`).join("")}</div><a class="more-link" href="/troubles/?area=${encodeURIComponent(slug)}">${esc(name)}の困りごとをすべて見る →</a></section>`:""}
